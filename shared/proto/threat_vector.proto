@@ -1,0 +1,44 @@
+syntax = "proto3";
+
+package threatvector;
+
+option go_package = "icarus-vision/backend/internal/pb";
+
+message AttackEvent {
+  //uniq id
+  string id = 1;
+
+  //attacker info
+  GeoPoint attacker_geo = 2;
+
+  //target info
+  GeoPoint target_geo = 3;
+
+  //severity level (0 - 100) - visual intensity, color and etc
+  int32 severity = 4;
+
+  //unix timestamps milisec
+  int64 start_ts = 5;
+  int64 end_ts = 6;
+
+}
+
+
+message GeoPoint {
+  //coordinates
+  double latitude = 1;
+  double longitude = 2;
+
+  //why geo resolution failed (if coordinates are 0,0)
+  GeoError error = 3;
+}
+
+enum GeoError {
+  GEO_ERROR_NONE = 0;
+  GEO_ERROR_PRIVATE_IP = 1;
+  GEO_ERROR_LOOKUP_MISS = 2;
+  GEO_ERROR_RATE_LIMITED = 3;
+  GEO_ERROR_TIMEOUT = 4;
+  GEO_ERROR_INVALID_IP = 5;
+  GEO_ERROR_INTERNAL = 6;
+}
