@@ -1,18 +1,13 @@
 package main
 
 import (
-	"fmt"
 	"icarus-vision/internal/simulation"
+	"time"
 )
 
 func main() {
-
-	event, err := simulation.GenerateRandomEvent()
-	if err != nil {
-		fmt.Println("GenerateRandomEvent error: ", err)
-		return
-	}
-
-	fmt.Println("GenerateRandomEvent success: ", event)
-
+	cancel := simulation.RunSimulationStream()
+	time.Sleep(5 * time.Second)
+	cancel()
+	time.Sleep(1 * time.Second)
 }
