@@ -3,6 +3,8 @@ package hub
 import (
 	"icarus-vision/internal/pb"
 	"icarus-vision/internal/ws"
+
+	"google.golang.org/protobuf/proto"
 )
 
 type Hub struct {
@@ -20,4 +22,28 @@ func NewHub() *Hub {
 		unregister: make(chan *ws.Client),
 	}
 	return &hub
+}
+
+func (h *Hub) Run() {
+	for {
+		select {
+		case client := <-h.register:
+			h.clients[client] = struct{}{}
+		case client := <-h.unregister:
+			delete(h.clients, client)
+		case event := <-h.broadcast:
+			data, err := proto.Marshal(event)
+			if err != nil {
+				continue
+			}
+
+			for client := range h.clients {
+				select {
+				case client.Send <- data:
+				default:
+					delete(h.clients, client)
+				}
+			}
+		}
+	}
 }

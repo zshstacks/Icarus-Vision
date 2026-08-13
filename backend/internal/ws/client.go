@@ -4,5 +4,5 @@ import "github.com/coder/websocket"
 
 type Client struct {
 	conn *websocket.Conn
-	send chan []byte
+	Send chan []byte
 }
