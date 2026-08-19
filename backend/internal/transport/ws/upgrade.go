@@ -11,7 +11,7 @@ type Handler struct {
 	hub *Hub
 }
 
-func (h *Handler) Upgrade(c echo.Context) error {
+func (h *Handler) Upgrade(c *echo.Context) error {
 	conn, err := websocket.Accept(c.Response(), c.Request(), nil)
 	if err != nil {
 		return err
@@ -29,4 +29,8 @@ func (h *Handler) Upgrade(c echo.Context) error {
 	go client.ReadPump(context.Background())
 
 	return nil
+}
+
+func NewHandler(hub *Hub) *Handler {
+	return &Handler{hub: hub}
 }
