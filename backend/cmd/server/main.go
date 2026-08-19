@@ -2,6 +2,8 @@ package main
 
 import (
 	"errors"
+	"fmt"
+	"icarus-vision/internal/config"
 	http2 "icarus-vision/internal/transport/http"
 	"icarus-vision/internal/transport/ws"
 	"log"
@@ -13,6 +15,8 @@ import (
 )
 
 func main() {
+	cfg := config.LoadConfig()
+
 	hub := ws.NewHub()
 
 	go hub.Run()
@@ -25,9 +29,9 @@ func main() {
 	e.Use(middleware.Recover())
 
 	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
-		AllowOrigins:     []string{"http://localhost:8080", "https://localhost:8080"},
-		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
-		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization"},
+		AllowOrigins:     cfg.CORS.AllowedOrigins,
+		AllowMethods:     cfg.CORS.AllowedMethods,
+		AllowHeaders:     cfg.CORS.AllowedHeaders,
 		ExposeHeaders:    []string{"Content-Length"},
 		AllowCredentials: true,
 		MaxAge:           int((24 * time.Hour) / time.Millisecond),
@@ -35,7 +39,9 @@ func main() {
 
 	http2.RegisterRoutes(e, handler)
 
-	if err := e.Start(":8080"); err != nil && !errors.Is(err, http.ErrServerClosed) {
+	port := fmt.Sprintf(":%s", cfg.Server.Port)
+
+	if err := e.Start(port); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		log.Fatal(err)
 	}
 
