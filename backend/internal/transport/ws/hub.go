@@ -7,7 +7,7 @@ import (
 
 type Hub struct {
 	clients    map[*Client]struct{}
-	broadcast  chan *domain.Event
+	Broadcast  chan *domain.Event
 	register   chan *Client
 	unregister chan *Client
 }
@@ -15,7 +15,7 @@ type Hub struct {
 func NewHub() *Hub {
 	hub := Hub{
 		clients:    make(map[*Client]struct{}),
-		broadcast:  make(chan *domain.Event),
+		Broadcast:  make(chan *domain.Event),
 		register:   make(chan *Client),
 		unregister: make(chan *Client),
 	}
@@ -34,7 +34,7 @@ func (h *Hub) Run() {
 				close(client.send)
 				delete(h.clients, client)
 			}
-		case event := <-h.broadcast:
+		case event := <-h.Broadcast:
 			data, err := json.Marshal(event)
 			if err != nil {
 				continue

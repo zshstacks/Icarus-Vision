@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"icarus-vision/internal/config"
+	"icarus-vision/internal/domain"
 	http2 "icarus-vision/internal/transport/http"
 	"icarus-vision/internal/transport/ws"
 	"log"
@@ -18,6 +19,33 @@ func main() {
 	cfg := config.LoadConfig()
 
 	hub := ws.NewHub()
+
+	//testing, delete this shit
+	go func() {
+		ticker := time.NewTicker(1 * time.Second)
+		defer ticker.Stop()
+
+		for range ticker.C {
+			event := domain.Event{
+				Type:   "track_update",
+				Source: "adsb",
+				Data: domain.Track{
+					ID:           "ICAO24",
+					Callsign:     "FA212",
+					Lat:          56.946,
+					Lon:          24.105,
+					Altitude:     new(5000.0),
+					OnGround:     false,
+					Speed:        new(112.0),
+					Heading:      new(321.0),
+					VerticalRate: new(55.0),
+					Timestamp:    time.Now().Unix(),
+				},
+			}
+
+			hub.Broadcast <- &event
+		}
+	}()
 
 	go hub.Run()
 

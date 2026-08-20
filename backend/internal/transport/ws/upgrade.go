@@ -12,7 +12,10 @@ type Handler struct {
 }
 
 func (h *Handler) Upgrade(c *echo.Context) error {
-	conn, err := websocket.Accept(c.Response(), c.Request(), nil)
+	opts := websocket.AcceptOptions{
+		OriginPatterns: []string{"localhost:8080", "localhost:5173"},
+	}
+	conn, err := websocket.Accept(c.Response(), c.Request(), &opts)
 	if err != nil {
 		return err
 	}
