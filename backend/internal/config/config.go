@@ -12,6 +12,7 @@ type AppConfig struct {
 	Environment string
 	Server      ServerConfig
 	CORS        CorsConfig
+	OpenSky     OpenSkyConfig
 }
 
 type ServerConfig struct {
@@ -24,6 +25,11 @@ type CorsConfig struct {
 	AllowedHeaders []string
 }
 
+type OpenSkyConfig struct {
+	ClientID     string
+	ClientSecret string
+}
+
 func LoadConfig() AppConfig {
 	err := godotenv.Load()
 	if err != nil {
@@ -32,6 +38,13 @@ func LoadConfig() AppConfig {
 
 	env := getEnv("APP_ENV", "development")
 	isProd := strings.ToLower(env) == "production"
+
+	clientID := getEnv("OPEN_SKY_CLIENT_ID", "")
+	clientSecret := getEnv("OPEN_SKY_CLIENT_SECRET", "")
+
+	if clientID == "" || clientSecret == "" {
+		log.Fatal("Missing OpenSky	 client ID or client secret")
+	}
 
 	return AppConfig{
 		Environment: env,
@@ -42,6 +55,10 @@ func LoadConfig() AppConfig {
 			AllowedOrigins: getCORSOrigins(isProd),
 			AllowedMethods: []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 			AllowedHeaders: []string{"Origin", "Content-Type", "Authorization"},
+		},
+		OpenSky: OpenSkyConfig{
+			ClientID:     getEnv("OPEN_SKY_CLIENT_ID", ""),
+			ClientSecret: getEnv("OPEN_SKY_CLIENT_SECRET", ""),
 		},
 	}
 }
