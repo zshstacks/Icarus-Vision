@@ -1,10 +1,13 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"fmt"
+	"icarus-vision/internal/broadcaster"
 	"icarus-vision/internal/config"
 	"icarus-vision/internal/domain"
+	"icarus-vision/internal/ingest/adsb"
 	http2 "icarus-vision/internal/transport/http"
 	"icarus-vision/internal/transport/ws"
 	"log"
@@ -20,31 +23,23 @@ func main() {
 
 	hub := ws.NewHub()
 
-	//testing, delete this shit
+	tokenManager := adsb.NewTokenManager(cfg.OpenSky.ClientID, cfg.OpenSky.ClientSecret)
+	client := adsb.NewClientManager(tokenManager)
+	worker := adsb.NewWorker(client)
+
+	tracks := make(chan domain.Track)
+	b := broadcaster.NewBroadcaster(tracks, hub, worker.Name())
+
+	ctx := context.Background()
 	go func() {
-		ticker := time.NewTicker(1 * time.Second)
-		defer ticker.Stop()
-
-		for range ticker.C {
-			event := domain.Event{
-				Type:   "track_update",
-				Source: "adsb",
-				Data: domain.Track{
-					ID:           "ICAO24",
-					Callsign:     "FA212",
-					Lat:          56.946,
-					Lon:          24.105,
-					Altitude:     new(5000.0),
-					OnGround:     false,
-					Speed:        new(112.0),
-					Heading:      new(321.0),
-					VerticalRate: new(55.0),
-					Timestamp:    time.Now().Unix(),
-				},
-			}
-
-			hub.Broadcast <- &event
+		if err := worker.Start(ctx, tracks); err != nil {
+			log.Printf("adsb worker stopped: %v", err)
 		}
+
+	}()
+
+	go func() {
+		b.Run(ctx)
 	}()
 
 	go hub.Run()
