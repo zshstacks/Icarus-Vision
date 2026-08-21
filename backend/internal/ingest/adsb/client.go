@@ -17,7 +17,12 @@ type TokenManager struct {
 	expiresAt    time.Time
 }
 
+type ClientManager struct {
+	tokenManager *TokenManager
+}
+
 const tokenURL = "https://auth.opensky-network.org/auth/realms/opensky-network/protocol/openid-connect/token"
+const statesURL = "https://opensky-network.org/api/states/all"
 
 func NewTokenManager(clientID string, clientSecret string) *TokenManager {
 
@@ -28,6 +33,14 @@ func NewTokenManager(clientID string, clientSecret string) *TokenManager {
 
 	return tokenManager
 
+}
+
+func NewClientManager(tokenManager *TokenManager) *ClientManager {
+	clientManager := &ClientManager{
+		tokenManager: tokenManager,
+	}
+
+	return clientManager
 }
 
 func (tm *TokenManager) GetToken(ctx context.Context) (string, error) {
@@ -72,5 +85,38 @@ func (tm *TokenManager) GetToken(ctx context.Context) (string, error) {
 	tm.expiresAt = time.Now().Add(time.Duration(tr.ExpiresIn-30) * time.Second)
 
 	return tm.token, nil
+
+}
+
+func (c *ClientManager) FetchStates(ctx context.Context) (*StatesResponse, error) {
+	var statesResponse StatesResponse
+
+	token, err := c.tokenManager.GetToken(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequestWithContext(ctx, "GET", statesURL, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Set("Authorization", "Bearer "+token)
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("FetchStates: opensky token request failed: %s", resp.Status)
+	}
+
+	if err := json.NewDecoder(resp.Body).Decode(&statesResponse); err != nil {
+		return nil, err
+	}
+
+	return &statesResponse, nil
 
 }
