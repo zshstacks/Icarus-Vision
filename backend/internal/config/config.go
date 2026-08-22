@@ -13,10 +13,15 @@ type AppConfig struct {
 	Server      ServerConfig
 	CORS        CorsConfig
 	OpenSky     OpenSkyConfig
+	Database    DatabaseConfig
 }
 
 type ServerConfig struct {
 	Port string
+}
+
+type DatabaseConfig struct {
+	URL string
 }
 
 type CorsConfig struct {
@@ -46,6 +51,11 @@ func LoadConfig() AppConfig {
 		log.Fatal("Missing OpenSky	 client ID or client secret")
 	}
 
+	dbURL := getEnv("DATABASE_URL", "")
+	if dbURL == "" {
+		log.Fatal("Missing DATABASE_URL")
+	}
+
 	return AppConfig{
 		Environment: env,
 		Server: ServerConfig{
@@ -59,6 +69,9 @@ func LoadConfig() AppConfig {
 		OpenSky: OpenSkyConfig{
 			ClientID:     getEnv("OPEN_SKY_CLIENT_ID", ""),
 			ClientSecret: getEnv("OPEN_SKY_CLIENT_SECRET", ""),
+		},
+		Database: DatabaseConfig{
+			URL: dbURL,
 		},
 	}
 }

@@ -8,6 +8,7 @@ import (
 	"icarus-vision/internal/config"
 	"icarus-vision/internal/domain"
 	"icarus-vision/internal/ingest/adsb"
+	"icarus-vision/internal/store"
 	http2 "icarus-vision/internal/transport/http"
 	"icarus-vision/internal/transport/ws"
 	"log"
@@ -20,6 +21,10 @@ import (
 
 func main() {
 	cfg := config.LoadConfig()
+
+	if err := store.RunMigration(cfg.Database.URL, "migrations"); err != nil {
+		log.Fatalf("migrations failed: %v", err)
+	}
 
 	hub := ws.NewHub()
 
