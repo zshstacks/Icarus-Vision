@@ -21,10 +21,17 @@ import (
 
 func main() {
 	cfg := config.LoadConfig()
+	ctx := context.Background()
 
 	if err := store.RunMigration(cfg.Database.URL, "migrations"); err != nil {
 		log.Fatalf("migrations failed: %v", err)
 	}
+
+	pool, err := store.NewPool(ctx, cfg.Database.URL)
+	if err != nil {
+		log.Fatalf("pool failed: %v", err)
+	}
+	defer pool.Close()
 
 	hub := ws.NewHub()
 
@@ -35,7 +42,6 @@ func main() {
 	tracks := make(chan domain.Track)
 	b := broadcaster.NewBroadcaster(tracks, hub, worker.Name())
 
-	ctx := context.Background()
 	go func() {
 		if err := worker.Start(ctx, tracks); err != nil {
 			log.Printf("adsb worker stopped: %v", err)
