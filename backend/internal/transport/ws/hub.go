@@ -1,6 +1,7 @@
 package ws
 
 import (
+	"context"
 	"encoding/json"
 	"icarus-vision/internal/domain"
 )
@@ -23,10 +24,12 @@ func NewHub() *Hub {
 	return &hub
 }
 
-func (h *Hub) Run() {
+func (h *Hub) Run(ctx context.Context) {
 
 	for {
 		select {
+		case <-ctx.Done():
+			return
 		case client := <-h.register:
 			h.clients[client] = struct{}{}
 		case client := <-h.unregister:

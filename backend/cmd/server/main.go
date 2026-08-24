@@ -13,6 +13,9 @@ import (
 	"icarus-vision/internal/transport/ws"
 	"log"
 	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/labstack/echo/v5"
@@ -21,7 +24,8 @@ import (
 
 func main() {
 	cfg := config.LoadConfig()
-	ctx := context.Background()
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
 
 	if err := store.RunMigration(cfg.Database.URL, "migrations"); err != nil {
 		log.Fatalf("migrations failed: %v", err)
@@ -53,7 +57,7 @@ func main() {
 		b.Run(ctx)
 	}()
 
-	go hub.Run()
+	go hub.Run(ctx)
 
 	handler := ws.NewHandler(hub)
 
@@ -75,8 +79,11 @@ func main() {
 
 	port := fmt.Sprintf(":%s", cfg.Server.Port)
 
-	if err := e.Start(port); err != nil && !errors.Is(err, http.ErrServerClosed) {
+	sc := echo.StartConfig{
+		Address:         port,
+		GracefulTimeout: 10 * time.Second,
+	}
+	if err := sc.Start(ctx, e); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		log.Fatal(err)
 	}
-
 }
