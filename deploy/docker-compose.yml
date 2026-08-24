@@ -1,0 +1,15 @@
+services:
+  postgres:
+    image: postgis/postgis:17-3.5
+    container_name: icarus-postgres
+    environment:
+      POSTGRES_DB: icarus_vision
+      POSTGRES_USER: icarus_vision
+      POSTGRES_PASSWORD: icarus_vision
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_data:
