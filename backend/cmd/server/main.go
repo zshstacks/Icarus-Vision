@@ -55,6 +55,8 @@ func main() {
 
 	}()
 
+	go store.RunRetentionLoop(ctx, pool, 24*time.Hour, 7*24*time.Hour)
+
 	go func() {
 		b.Run(ctx)
 	}()
