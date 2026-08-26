@@ -37,14 +37,28 @@ func (w *Worker) Start(ctx context.Context, out chan<- domain.Track) error {
 				continue
 			}
 
+			total := len(states.States)
+			rejected := 0
+
 			for _, row := range states.States {
 				track, err := rowToTrack(row)
+
 				if err != nil {
 					log.Printf("Worker Start(): rowToTrack -  %v", err)
+					rejected++
 					continue
 				}
 				out <- track
 			}
+
+			//total vs rejected per tick(perc%)
+			accepted := total - rejected
+			pct := 0.0
+			if total > 0 {
+				pct = float64(rejected) / float64(total) * 100
+			}
+			log.Printf("Worker Start(): tick stats - total: %d, accepted: %d, rejected: %d (%.1f%% rejected)",
+				total, accepted, rejected, pct)
 
 		}
 	}

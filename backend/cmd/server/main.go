@@ -43,9 +43,10 @@ func main() {
 	tokenManager := adsb.NewTokenManager(cfg.OpenSky.ClientID, cfg.OpenSky.ClientSecret)
 	client := adsb.NewClientManager(tokenManager)
 	worker := adsb.NewWorker(client)
+	trackRepo := store.NewTrackRepo(pool)
 
 	tracks := make(chan domain.Track)
-	b := broadcaster.NewBroadcaster(tracks, hub, worker.Name())
+	b := broadcaster.NewBroadcaster(tracks, hub, worker.Name(), trackRepo)
 
 	go func() {
 		if err := worker.Start(ctx, tracks); err != nil {
