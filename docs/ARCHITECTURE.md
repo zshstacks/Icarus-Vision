@@ -17,181 +17,216 @@ broadcaster
    └──► ws/hub.Broadcast(event) ──► all connected WS clients
 ```
 
-`ws`, `ingest/adsb`, and `broadcaster` are built and verified against
-live OpenSky data. `store` (Postgres/PostGIS) is next — nothing persists
-yet, tracks only flow through to connected WS clients.
 
-## Domain Layer (`internal/domain`)
 
-- `Altitude`, `Speed`, `Heading`, `VerticalRate` are `*float64`, not
-  `float64`. OpenSky often omits them — a pointer lets `nil` mean
-  "unknown" instead of a plain `0` lying about it (e.g. grounded aircraft
-  near-zero altitude vs. genuinely missing data).
-- Timestamp uses `last_contact`, not `time_position` — the latter can be
-  `null` even for actively-tracked aircraft.
-- Altitude uses `baro_altitude`, not `geo_altitude` — baro is what every
-  other flight tracker displays; geo (GPS-derived) would disagree by
-  hundreds of feet and look "wrong" by comparison.
+Everything above is built and running against live OpenSky data.
+
+## Domain (`internal/domain`)
+
+- `Altitude/Speed/Heading/VerticalRate` are `*float64` — OpenSky omits
+  these often, pointer lets `nil` mean "unknown" instead of a lying `0`.
+- Timestamp uses `last_contact`, not `time_position` (latter can be
+  null even for tracked aircraft).
+- Altitude uses `baro_altitude` not `geo_altitude` — matches what
+  every other tracker shows.
 - ICAO24 normalization (lowercase/trim) happens in `ingest/adsb`, not
-  `domain`. Keeps `domain.Track` a trusted canonical shape, and avoids the
-  same aircraft producing two map keys (`"4b1812"` vs `"4B1812"`) if
-  normalization were scattered or skipped somewhere downstream.
-- `Event.Data` reuses `Track` for both `track_update` and `track_removed`
-  (removed events only populate `ID`). Considered a separate payload shape
-  but skipped it — payload size is irrelevant at this scale, and "don't
-  read stale coords off a removed event" is a discipline problem (check
-  `event.type` first in the frontend), not a type-system one. Revisit if
-  Phase 2+ actually needs a different removal shape.
+  `domain` — keeps `domain.Track` trusted, avoids duplicate map keys.
+- `Event.Data` reuses `Track` for both update/removed events (removed
+  only sets `ID`). Skipped a separate shape — discipline problem for
+  the frontend (check `event.type`), not a type problem.
 
-## WebSocket Transport (`internal/transport/ws`)
+## WebSocket (`internal/transport/ws`)
 
-**Hub** — client set + register/unregister/broadcast channels, all only
-touched inside `Run()`'s single goroutine (no mutex needed as a result).
+**Hub** — single goroutine owns the client map, no mutex needed. Takes
+`ctx`, exits on `ctx.Done()`.
+- Marshal JSON once per event, fan out same bytes to everyone.
+- Fan-out is non-blocking (`select`+`default`) — one slow client gets
+  evicted instead of stalling everyone. `send` buffer = 32, unmeasured
+  guess.
+- Both removal paths check `if _, ok := h.clients[client]` before
+  closing — otherwise a client flagged dead from both sides
+  double-closes the channel and panics the hub.
 
-- `broadcast` carries `*domain.Event`; JSON marshaling happens once per
-  event inside `Run()`, then the same bytes fan out to every client —
-  marshaling per-client would be redundant work for identical output.
-- Fan-out send is non-blocking (`select` + `default`) — without it, one
-  slow client would stall delivery to everyone. A slow/stuck client gets
-  evicted instead. `send` is buffered at 32 (a guess, not measured —
-  revisit once real broadcast rate is known).
-- Both removal paths (`unregister` case, and slow-reader eviction inside
-  `broadcast`) check `if _, ok := h.clients[client]; ok` before closing/
-  deleting. Without it, a client removed via one path and then again via
-  the other (e.g. read pump and write pump both independently detect the
-  same dead connection) would double-`close()` the channel — which panics
-  and crashes the whole hub goroutine.
+**Client** — `conn`, `send chan`, back-ref to `hub`.
+- `ReadPump` discards messages but has to run — only way to detect
+  disconnect.
+- `ReadPump` uses `context.Background()`, not the request context —
+  the latter dies right after the Echo handler returns (right after
+  upgrade), which would kill the connection instantly.
+- `WritePump` uses a per-write timeout — protects against a write
+  stuck on a half-dead TCP connection (hub's non-blocking send doesn't
+  cover that).
 
-**Client** — holds `conn`, `send chan []byte`, and a `hub *Hub` back-
-reference (not a duplicate channel — channels are owned by `Hub`).
+## Data source: OpenSky, not adsb.lol
 
-- `ReadPump` discards incoming messages (frontend never sends real data,
-  it's a one-way push stream) but still has to run — it's the only way to
-  detect disconnect (`Read` errors), and `coder/websocket` handles
-  ping/pong internally as part of `Read()`.
-- `ReadPump` uses `context.Background()`, not the HTTP request's context.
-  First instinct was `c.Request().Context()` — wrong, since that context
-  dies when the Echo handler returns, which happens almost immediately
-  after the WS upgrade, killing the connection right after it opens.
-- `WritePump` uses a per-write timeout instead — the hub's non-blocking
-  send only protects the hub, not a write that's already in flight and
-  hanging on a half-dead TCP connection. `conn.Close()` runs via `defer`
-  so it fires on every exit path, including the case where the loop just
-  ends because the hub already closed `send` (no error, no explicit
-  return through the error branch).
-- Rule to remember: a dead connection **triggers** unregister; the hub
-  never reaches into a client's connection directly.
+adsb.lol has no true global endpoint — checked their actual docs,
+everything's point+radius or category-filtered, their global map runs
+on feeder-only `re-api`. OpenSky has a real global `/states/all`.
 
-## Data source: OpenSky, not adsb.lol (decision, not just a pick)
-
-Originally planned adsb.lol (no OAuth, no daily credit ceiling — simpler).
-Reversed after checking their actual public API docs: there's no true
-global endpoint. Every position query is point+radius (max 250nm) or
-category-filtered (military, PIA, squawk, etc.) — no "all aircraft on
-Earth" call. Their own website's global map uses `re-api`, which is
-feeder-only (requires physically running a receiver feeding their
-network) — confirmed via browser Network tab, not assumption. Since
-Phase 0 wants global coverage, went back to OpenSky, which does have a
-documented, genuinely global `/states/all`.
-
-Trade-off accepted: OpenSky's credit system caps how often a global call
-can run. Global query = 4 credits/call, Standard tier = 4,000 credits/day
-→ ~1,000 calls/day max → poll interval can't go below ~90s. Using 120s
-for margin. This means the map won't feel sub-second-live — more "updates
-every 2 minutes" than "smooth real-time" — but it's global, predictable,
-and won't silently break from an undocumented rate limit tightening.
+Trade-off: credit system caps polling. Global query = 4 credits,
+4,000/day standard tier → ~1,000 calls/day → can't go below ~90s.
+Using 120s for margin. Map updates every couple minutes, not
+real-time — acceptable for global + predictable.
 
 ## Ingest (`internal/ingest/adsb`)
 
-**Auth** — OpenSky requires OAuth2 client credentials, not anonymous
-access (anonymous is capped at 400 credits/day, unusable for 24/7
-global polling). `TokenManager` caches the token in memory and only
-refetches when it's within 30s of the documented 30-minute expiry —
-avoids hitting the auth endpoint on every poll tick for no reason. No
-mutex on it: only one goroutine (`Worker.Start`) ever calls it in
-Phase 0, so there's no real concurrent-access case to guard against yet.
-
-**Row parsing (`convert.go`)** — OpenSky's `states` array is positional,
-not named JSON fields (`row[6]` is latitude, `row[5]` is longitude — easy
-to get backwards). Decoded into `[][]interface{}` since a row mixes
-strings, numbers, bools, and nulls. Type assertions use the safe
-two-value form everywhere (`v, ok := row[i].(float64)`), since a bad
-assertion on live external data would otherwise panic the worker.
-
-Fields split into two tiers based on OpenSky's own docs (fields
-documented as nullable vs. not):
-- **Hard-reject the row**: row too short, missing/wrong-typed ICAO24,
-  on_ground, last_contact, or lat/lon. A track with no valid position or
-  identity isn't useful data — silently defaulting lat/lon to `0.0` would
-  be worse than dropping the row, since `0,0` is a real coordinate (Gulf
-  of Guinea) and would draw a phantom aircraft on the map.
-- **Soft-default to nil/empty**: altitude, speed, heading, vertical_rate
-  (all `*float64`, OpenSky docs say "can be null"), and callsign (empty
-  string on failure, since a plane without a callsign is still worth
-  showing).
-
-**Worker (`worker.go`)** — implements the `ingest.Source` interface
-(`Name() string`, `Start(ctx, out chan<- domain.Track) error`) designed
-before any ingest code existed, so a second source (Phase 2+ AIS/
-satellites) can plug into the same broadcaster without changes there.
-Go doesn't need an explicit "implements" declaration — structural typing,
-any type with matching methods satisfies the interface automatically.
-
-Two failure-isolation decisions, same "contain the blast radius" logic
-used elsewhere in this project:
-- A failed `FetchStates` call (network blip, auth hiccup) logs and
-  `continue`s to the next tick — doesn't kill the worker goroutine
-  permanently. One bad poll shouldn't require a manual restart.
-- A single row that fails `rowToTrack` is logged and skipped — doesn't
-  abort the whole batch. One malformed aircraft entry (out of hundreds)
-  shouldn't drop every other valid one for that cycle.
-
-`out <- track` is a plain, blocking send (unbuffered channel from
-`main.go`) — unlike the hub's non-blocking fan-out, there's no
-`default`/eviction here. Accepted risk for Phase 0: if the broadcaster
-ever stalls, the worker blocks too. Not defended against, since a stalled
-broadcaster would already indicate something more seriously broken.
+- OAuth2 client credentials required (anonymous capped at 400
+  credits/day). `TokenManager` caches token, refetches within 30s of
+  the documented 30-min expiry.
+- States array is positional (`row[5]`=lon, `row[6]`=lat — easy to
+  flip). Decoded as `[][]interface{}`, all type assertions use the
+  safe two-value form.
+- Hard reject: bad/missing ICAO24, on_ground, last_contact, lat/lon —
+  no valid position/identity isn't useful, and defaulting to 0,0 would
+  draw a phantom aircraft in the Gulf of Guinea.
+- Soft default to nil/empty: altitude, speed, heading, vertical_rate,
+  callsign.
+- Measured rejection rate: ~1% (129/12,523 in one tick) — normal, from
+  aircraft tracked via Mode S with no current position fix. Logged as
+  a per-tick summary now so a future spike actually means something.
+- Worker implements `ingest.Source` so Phase 2+ sources (AIS,
+  satellites) plug in without touching broadcaster/hub.
+- Failure isolation: a failed `FetchStates` logs+continues to next
+  tick; a bad row logs+skips without killing the batch.
+- `out <- track` is a blocking send, no eviction — accepted risk, a
+  stalled broadcaster means something's already badly broken.
 
 ## Broadcaster (`internal/broadcaster`)
 
-Fan-in from `ingest.Source` to `ws.Hub`: reads `domain.Track` off a
-channel, wraps each into a `domain.Event{Type: "track_update", Source,
-Data}`, forwards to `hub.Broadcast`.
+Fan-in: `domain.Track` → `domain.Event` → `hub.Broadcast`. Coupled
+directly to `*ws.Hub`, no interface — one hub, no second target
+planned, YAGNI.
 
-Coupled directly to `*ws.Hub` rather than an interface (`Publisher`
-with a `Broadcast` method). Considered the interface for decoupling, but
-there's exactly one hub implementation and no planned second one —
-YAGNI. Cheap to extract an interface later if a second broadcast target
-ever shows up; not worth the abstraction now.
+Now also holds `*store.TrackRepo`. Order in `Run`: broadcast first
+(live/user-facing, shouldn't wait on DB), then
+`UpsertLatest`/`InsertPosition` independently, each logged-not-fatal
+on error — one failed write shouldn't kill broadcasting for every
+future track.
 
-## Echo v5 gotchas (differ from v4 / most tutorials)
+## Storage (`internal/store`)
 
-- `echo.Context` is `*echo.Context` — a pointer — in v5, not a plain
-  interface value like v4. Hit a compile error assuming otherwise.
-- No `e.Logger.Fatal()` — v5 uses `log/slog`, which has no `Fatal`. Use
-  stdlib `log.Fatal(err)` for fatal startup errors.
-- `e.Start(...)` returns `http.ErrServerClosed` on graceful shutdown —
-  not a real failure. Check `errors.Is(err, http.ErrServerClosed)` before
-  treating it as fatal.
+**Schema** — `tracks_latest` (one row/aircraft, `id`=ICAO24 PK, upsert
+target, full live-state columns) and `track_positions` (append-only,
+`BIGSERIAL` id, indexed on `(track_id, recorded_at)`).
+
+`track_positions` is deliberately narrow — just `track_id, lat, lon,
+altitude, recorded_at`. Live-state fields (callsign, speed, heading
+etc.) don't belong on a table written every 120s forever with no read
+pattern that needs them per-point.
+
+No FK between the two tables, on purpose — trail history should
+survive independent of whatever `tracks_latest` looks like later
+(pruning, etc.), and an FK would force insert ordering + block pruning.
+
+Both tables generate `geometry(Point, 4326)` off lat/lon (one source
+of truth, GiST index free). `tracks_latest` also keeps plain lat/lon
+columns since it's read constantly — beats `ST_X`/`ST_Y` calls.
+`track_positions` skips the duplication, it's write-heavy/rarely read.
+
+Bug hit: `TIMESTAMP` as a bare column name is reserved, breaks the
+parser — renamed to `recorded_at`.
+
+**Migrations** run from `main.go` on startup (`golang-migrate` Go API,
+not CLI) — one VPS, no pipeline, a manual pre-deploy step is exactly
+the thing that gets forgotten. Needs blank imports for the file +
+postgres drivers (self-register via `init()`, compiles fine without
+them but fails at runtime).
+
+**Pool** — `pgxpool.New` + explicit `Ping` right after (`New` alone
+doesn't guarantee a live connection). `pool.Close()` on failed ping to
+avoid leaking the resources `New` already allocated. Returns a raw
+`*pgxpool.Pool`, no wrapper — one consumer, no swap planned.
+
+**`TrackRepo`** — concrete struct, not an interface (unlike
+`ingest.Source`, which has real multiple implementations coming).
+Nothing driving a need to mock this yet — adding the interface now
+would be speculative.
+
+- `UpsertLatest` — `ON CONFLICT (id) DO UPDATE`, explicit
+  `updated_at = now()` on conflict (its default only fires on insert).
+- `InsertPosition` — plain insert, narrow columns.
+
+`*float64` fields pass straight through — confirmed `pgx` treats nil
+as SQL NULL, no `sql.NullFloat64` needed. `Timestamp` (int64 unix)
+converts via `time.Unix()` before binding — pgx won't infer that
+conversion itself.
+
+**Retention** — `track_positions` grows unbounded otherwise
+(~12,400 rows/tick × ~12s ticks measured → millions of rows/day), so
+`RunRetentionLoop` (in `store/retention.go`) runs on its own ticker,
+same goroutine-with-ctx shape as everything else:
+`DELETE FROM track_positions WHERE recorded_at < now() - window`,
+checked once every 24h, 7-day window. Wired into `main.go` as its own
+`go func()`, same `ctx` as everything else.
+
+Both interval and window are just parameters passed in from `main.go`
+(`RunRetentionLoop(ctx, pool, 24*time.Hour, 7*24*time.Hour)`), not
+hardcoded in `store` — easy to change without touching store code.
+
+Once-daily errs on the side of "don't run it more than needed," not
+"don't run it enough" — deleting week-old rows a few hours later
+changes nothing. A single failed pass just logs and tries again next
+tick — no caller upstream needs to know or react.
+
+**Known gap**: on a fresh deploy or after any extended downtime,
+`track_positions` sits unpruned for up to a full 24h before the first
+tick fires (ticker starts counting from process start, not from some
+persisted "last ran at" time). Not a bug, just means the "grows
+forever" problem isn't fully closed off until that first tick
+actually runs — acceptable at Phase 0 scale, but if the VPS ever
+restarts frequently (crash loops, redeploys), this table could grow
+more than expected between runs. Would need either a "run once
+immediately on startup, then every 24h" pattern, or a persisted
+last-run timestamp, to fully close.
+
+## Graceful Shutdown
+
+`signal.NotifyContext(..., os.Interrupt, syscall.SIGTERM)` instead of
+bare `context.Background()`, threaded through every goroutine.
+
+Echo v5 dropped `e.Shutdown()` entirely — real breaking change, not a
+mistake. Replaced with `echo.StartConfig{GracefulTimeout}` +
+`sc.Start(ctx, e)`, which is itself context-aware and drains in-flight
+requests on cancel.
+
+Order: signal → ctx cancels → goroutines exit → Echo drains → `main()`
+returns → deferred `pool.Close()` last (LIFO, guaranteed last step —
+closing earlier risks killing a write mid-shutdown).
+
+## Echo v5 gotchas
+
+- `echo.Context` is `*echo.Context` now, not an interface.
+- No `e.Logger.Fatal()` — v5 uses `log/slog`, use stdlib `log.Fatal`.
+- No `e.Shutdown()` — see above. Still returns `http.ErrServerClosed`
+  on clean shutdown (`errors.Is` check unchanged).
 
 ## Config
 
-Missing `.env` logs a warning, not fatal — the VPS uses real env vars, not
-a shipped `.env` file, and `getEnv` already falls back to `os.Getenv` then
-to defaults either way.
+Missing `.env` just warns, not fatal (VPS uses real env vars).
+`DATABASE_URL` fails fast like the OpenSky creds — same standard.
+
+## Local dev
+
+Postgres/PostGIS via Docker Compose, `postgis/postgis:17-3.5` — not
+`latest` (reproducibility), not `18-3.6` (different internal volume
+path, changed in PG18+, mismatches the legacy path most guidance
+assumes). Named volume needs an explicit top-level `volumes:` block.
+
+Host port `5433:5432`, not `5432` — had a native Postgres on Windows
+already squatting on 5432 from an old project. Docker didn't complain,
+container ran fine, `docker exec` into it worked the whole time (never
+touches the host port) — but every host-side connection (Go app,
+`psql` from Windows) was silently hitting the native install instead,
+which had no `icarus_vision` user. Looked like a plain auth failure,
+gave no hint it was the wrong database. Found via `netstat -ano |
+findstr 5432` (two PIDs) → `Get-Process` on both → one was native
+`postgres.exe`. Moved container to 5433 rather than touch the native
+install.
 
 ## Open questions
 
-- `send` buffer size (32) — guess, not measured against real traffic.
-- Unit conversion for `Speed`/`VerticalRate` (m/s → knots?) — not decided,
-  needs to happen in exactly one place once it is.
-- 120s poll interval means trails will look choppy on the frontend map —
-  may need client-side interpolation between updates to fake smoothness,
-  not decided yet.
-- No graceful shutdown yet — `main.go` uses `context.Background()`
-  everywhere, so `worker.Start`/`broadcaster.Run` never actually exit.
-  Fine for now, needs revisiting before deploy (SIGTERM handling on the
-  VPS should stop the ingest pipeline cleanly, not just get killed).
-- adsb.lol's rate limit is undocumented/dynamic — if OpenSky's credit
-  ceiling becomes a real problem later, revisit adsb.lol scoped to a
-  single region instead of trying to tile for global coverage.
+- `send` buffer size (32) — unmeasured guess.
+- Speed/VerticalRate unit conversion (m/s → knots?) — undecided.
+- 120s poll → choppy trails, might need client-side interpolation.
+- adsb.lol rate limit is undocumented/dynamic — revisit scoped to one
+  region if OpenSky's credit ceiling becomes a real problem.
