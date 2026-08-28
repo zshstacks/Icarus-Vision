@@ -4,6 +4,7 @@ import DataFilters from "../../features/sidebar-left/components/DataFilters";
 import TelemetryPanel from "../../features/inspector/components/TelemetryPanel";
 // import RouteSummary from "../../features/inspector/components/RouteSummary";
 import StatusBar from "../../features/statusbar/components/StatusBar";
+import MapView from "../../features/map/components/MapView";
 
 export default function AppShell() {
   return (
@@ -20,9 +21,9 @@ export default function AppShell() {
         </aside>
 
         {/* Map */}
-        <main className="relative flex-1 bg-[#0D1117]">
-          <div className="absolute inset-0 flex items-center justify-center text-[#6E7681] text-sm">
-            Map canvas (empty)
+        <main className="relative flex-1 min-h-0 bg-[#0D1117]">
+          <div className="absolute inset-0">
+            <MapView />
           </div>
         </main>
 
