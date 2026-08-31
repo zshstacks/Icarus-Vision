@@ -14,5 +14,5 @@ export interface tracksType {
 export interface eventType {
   type: "track_update" | "track_removed";
   source: string;
-  data: tracksType;
+  data: tracksType[];
 }

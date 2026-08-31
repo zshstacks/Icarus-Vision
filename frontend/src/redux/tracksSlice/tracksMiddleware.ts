@@ -15,7 +15,7 @@ const tracksMiddleware: Middleware = (store) => {
           store.dispatch(trackUpdated(parsed.data));
           break;
         case "track_removed":
-          store.dispatch(trackRemoved(parsed.data.id));
+          store.dispatch(trackRemoved(parsed.data.map((track) => track.id)));
           break;
         default:
           break;

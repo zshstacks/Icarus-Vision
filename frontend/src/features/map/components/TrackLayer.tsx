@@ -39,8 +39,6 @@ export default function TrackLayer({ map }: TrackLayerState) {
   useEffect(() => {
     if (!map) return;
 
-    // console.log("setData", arr.length);
-
     const features = arr.map((track) => ({
       type: "Feature" as const,
       geometry: {
