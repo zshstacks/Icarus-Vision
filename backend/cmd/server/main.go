@@ -45,7 +45,7 @@ func main() {
 	worker := adsb.NewWorker(client)
 	trackRepo := store.NewTrackRepo(pool)
 
-	tracks := make(chan domain.Track)
+	tracks := make(chan []domain.Track)
 	b := broadcaster.NewBroadcaster(tracks, hub, worker.Name(), trackRepo)
 
 	go func() {

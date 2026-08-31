@@ -22,7 +22,7 @@ func (w *Worker) Name() string {
 	return "adsb"
 }
 
-func (w *Worker) Start(ctx context.Context, out chan<- domain.Track) error {
+func (w *Worker) Start(ctx context.Context, out chan<- []domain.Track) error {
 	ticker := time.NewTicker(120 * time.Second)
 	defer ticker.Stop()
 
@@ -39,6 +39,7 @@ func (w *Worker) Start(ctx context.Context, out chan<- domain.Track) error {
 
 			total := len(states.States)
 			rejected := 0
+			var tracks []domain.Track
 
 			for _, row := range states.States {
 				track, err := rowToTrack(row)
@@ -48,7 +49,11 @@ func (w *Worker) Start(ctx context.Context, out chan<- domain.Track) error {
 					rejected++
 					continue
 				}
-				out <- track
+				tracks = append(tracks, track)
+			}
+
+			if len(tracks) > 0 {
+				out <- tracks
 			}
 
 			//total vs rejected per tick(perc%)
