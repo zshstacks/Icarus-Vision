@@ -1,7 +1,9 @@
+import FpsCounter from "./FpsCounter";
+
 export default function StatusBar() {
   return (
     <footer className="flex h-8 items-center justify-between border-t border-[#30363D] bg-[#161B22] px-4 text-xs text-[#8B949E]">
-      <div className="flex items-center gap-6">
+      <div className="flex items-center gap-6 ">
         <div className="flex items-center gap-1.5">
           <span className="h-2 w-2 rounded-full bg-[#3FB950] animate-pulse" />
         </div>
@@ -23,6 +25,11 @@ export default function StatusBar() {
         <div>
           <span className="uppercase tracking-wider">Latency</span>{" "}
           <span className="font-mono text-[#E6EDF3]">78ms</span>
+        </div>
+
+        <div className="flex items-center gap-1.5">
+          <span className="uppercase tracking-wider">FPS</span>
+          <FpsCounter />
         </div>
       </div>
 

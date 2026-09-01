@@ -125,6 +125,7 @@ const LABEL_TIERS: Record<string, LabelTier> = {
 export default function MapView() {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const [map, setMap] = useState<Map | null>(null);
+  const [ready, setReady] = useState(false);
 
   useEffect(() => {
     if (!mapContainerRef.current) return;
@@ -142,7 +143,8 @@ export default function MapView() {
       applyIcarusTheme(mapInstance);
       mapInstance.resize();
       setMap(mapInstance);
-      (window as any).__map = mapInstance;
+
+      requestAnimationFrame(() => setReady(true));
     });
 
     mapInstance.on("styledata", () => {
@@ -153,11 +155,20 @@ export default function MapView() {
   }, []);
 
   return (
-    <div
-      ref={mapContainerRef}
-      className="h-full w-full"
-      style={{ minHeight: 0, backgroundColor: PALETTE.land }}
-    >
+    <div className="relative h-full w-full" style={{ minHeight: 0 }}>
+      <div
+        ref={mapContainerRef}
+        className="absolute inset-0 h-full w-full"
+        style={{ backgroundColor: PALETTE.land }}
+      />
+
+      {!ready && (
+        <div
+          className="absolute inset-0 z-10"
+          style={{ backgroundColor: PALETTE.land }}
+        />
+      )}
+
       <TrackLayer map={map} />
     </div>
   );
@@ -166,7 +177,13 @@ export default function MapView() {
 function applyIcarusTheme(map: Map) {
   const layers = map.getStyle().layers ?? [];
   const layerIds = new Set(layers.map((l) => l.id));
-  const has = (id: string) => layerIds.has(id);
+  const missingLayerIds = new Set<string>();
+
+  const has = (id: string) => {
+    const exists = layerIds.has(id);
+    if (!exists) missingLayerIds.add(id);
+    return exists;
+  };
 
   //Base surfaces
   map.setPaintProperty("background", "background-color", PALETTE.land);
