@@ -9,18 +9,20 @@ import (
 )
 
 type Broadcaster struct {
-	tracks    <-chan []domain.Track
-	hub       *ws.Hub
-	source    string
-	trackRepo *store.TrackRepo
+	tracks        <-chan []domain.Track
+	removedTracks <-chan []string
+	hub           *ws.Hub
+	source        string
+	trackRepo     *store.TrackRepo
 }
 
-func NewBroadcaster(tracks <-chan []domain.Track, hub *ws.Hub, source string, trackRepo *store.TrackRepo) *Broadcaster {
+func NewBroadcaster(tracks <-chan []domain.Track, removedTracks <-chan []string, hub *ws.Hub, source string, trackRepo *store.TrackRepo) *Broadcaster {
 	b := &Broadcaster{
-		tracks:    tracks,
-		hub:       hub,
-		source:    source,
-		trackRepo: trackRepo,
+		tracks:        tracks,
+		removedTracks: removedTracks,
+		hub:           hub,
+		source:        source,
+		trackRepo:     trackRepo,
 	}
 
 	return b
@@ -49,7 +51,21 @@ func (b *Broadcaster) Run(ctx context.Context) {
 					log.Printf("InsertPosition error: %v", err)
 				}
 			}
+		case removedTracks := <-b.removedTracks:
+			var removedAsTracks []domain.Track
+			for _, id := range removedTracks {
+				removedAsTracks = append(removedAsTracks, domain.Track{
+					ID: id,
+				})
+			}
 
+			event := &domain.Event{
+				Type:   "track_removed",
+				Source: b.source,
+				Data:   removedAsTracks,
+			}
+
+			b.hub.Broadcast <- event
 		}
 
 	}

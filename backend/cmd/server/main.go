@@ -46,10 +46,11 @@ func main() {
 	trackRepo := store.NewTrackRepo(pool)
 
 	tracks := make(chan []domain.Track)
-	b := broadcaster.NewBroadcaster(tracks, hub, worker.Name(), trackRepo)
+	removedTracks := make(chan []string)
+	b := broadcaster.NewBroadcaster(tracks, removedTracks, hub, worker.Name(), trackRepo)
 
 	go func() {
-		if err := worker.Start(ctx, tracks); err != nil {
+		if err := worker.Start(ctx, tracks, removedTracks); err != nil {
 			log.Printf("adsb worker stopped: %v", err)
 		}
 

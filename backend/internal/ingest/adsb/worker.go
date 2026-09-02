@@ -9,11 +9,13 @@ import (
 
 type Worker struct {
 	client *ClientManager
+	ids    map[string]struct{}
 }
 
 func NewWorker(client *ClientManager) *Worker {
 	w := &Worker{
 		client: client,
+		ids:    make(map[string]struct{}),
 	}
 	return w
 }
@@ -22,7 +24,7 @@ func (w *Worker) Name() string {
 	return "adsb"
 }
 
-func (w *Worker) Start(ctx context.Context, out chan<- []domain.Track) error {
+func (w *Worker) Start(ctx context.Context, out chan<- []domain.Track, outRemoved chan<- []string) error {
 	ticker := time.NewTicker(120 * time.Second)
 	defer ticker.Stop()
 
@@ -50,6 +52,23 @@ func (w *Worker) Start(ctx context.Context, out chan<- []domain.Track) error {
 					continue
 				}
 				tracks = append(tracks, track)
+			}
+
+			currentIDs := make(map[string]struct{})
+			for _, t := range tracks {
+				currentIDs[t.ID] = struct{}{}
+			}
+
+			var removedIDs []string
+			for id := range w.ids {
+				if _, ok := currentIDs[id]; !ok { //is id present in currentIDs, if not it means aircraft disappeared this tick
+					removedIDs = append(removedIDs, id)
+				}
+			}
+			w.ids = currentIDs
+
+			if len(removedIDs) > 0 {
+				outRemoved <- removedIDs
 			}
 
 			if len(tracks) > 0 {

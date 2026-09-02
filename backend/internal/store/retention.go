@@ -26,6 +26,11 @@ func RunRetentionLoop(ctx context.Context, pool *pgxpool.Pool, interval time.Dur
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 
+	err := RunRetention(ctx, pool, retentionWindow)
+	if err != nil {
+		log.Printf("RunRetention on startup: %v", err)
+	}
+
 	for {
 		select {
 		case <-ctx.Done():
