@@ -9,6 +9,7 @@ import (
 
 type Handler struct {
 	hub *Hub
+	ctx context.Context
 }
 
 func (h *Handler) Upgrade(c *echo.Context) error {
@@ -26,14 +27,23 @@ func (h *Handler) Upgrade(c *echo.Context) error {
 		send: make(chan []byte, 32), //buffered (async, no ruin)
 	}
 
-	h.hub.register <- &client
+	select {
+	case h.hub.register <- &client:
+
+	case <-h.ctx.Done():
+		err := conn.Close(websocket.StatusNormalClosure, "connection closed")
+		if err != nil {
+			return err
+		}
+		return h.ctx.Err()
+	}
 
 	go client.WritePump()
-	go client.ReadPump(context.Background())
+	go client.ReadPump(h.ctx)
 
 	return nil
 }
 
-func NewHandler(hub *Hub) *Handler {
-	return &Handler{hub: hub}
+func NewHandler(hub *Hub, ctx context.Context) *Handler {
+	return &Handler{hub: hub, ctx: ctx}
 }

@@ -15,6 +15,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 	"time"
 
@@ -23,6 +24,9 @@ import (
 )
 
 func main() {
+
+	var wg sync.WaitGroup
+
 	cfg := config.LoadConfig()
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
@@ -45,26 +49,29 @@ func main() {
 	worker := adsb.NewWorker(client)
 	trackRepo := store.NewTrackRepo(pool)
 
-	tracks := make(chan []domain.Track)
-	removedTracks := make(chan []string)
+	tracks := make(chan []domain.Track, 1) // added a small buffer so the worker can dump final payload and exit cleanly
+	removedTracks := make(chan []string, 1)
 	b := broadcaster.NewBroadcaster(tracks, removedTracks, hub, worker.Name(), trackRepo)
 
-	go func() {
+	wg.Go(func() {
 		if err := worker.Start(ctx, tracks, removedTracks); err != nil {
 			log.Printf("adsb worker stopped: %v", err)
 		}
+	})
 
-	}()
+	wg.Go(func() {
+		store.RunRetentionLoop(ctx, pool, 24*time.Hour, 7*24*time.Hour)
+	})
 
-	go store.RunRetentionLoop(ctx, pool, 24*time.Hour, 7*24*time.Hour)
-
-	go func() {
+	wg.Go(func() {
 		b.Run(ctx)
-	}()
+	})
 
-	go hub.Run(ctx)
+	wg.Go(func() {
+		hub.Run(ctx)
+	})
 
-	handler := ws.NewHandler(hub)
+	handler := ws.NewHandler(hub, ctx)
 
 	e := echo.New()
 
@@ -91,4 +98,8 @@ func main() {
 	if err := sc.Start(ctx, e); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		log.Fatal(err)
 	}
+
+	log.Println("--- Shutting down background workers ---")
+	wg.Wait()
+	log.Println("--- Server gracefully stopped ---")
 }

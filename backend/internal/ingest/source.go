@@ -7,5 +7,5 @@ import (
 
 type Source interface {
 	Name() string
-	Start(ctx context.Context, out chan<- domain.Track) error
+	Start(ctx context.Context, out chan<- []domain.Track, outRemoved chan<- []string) error
 }

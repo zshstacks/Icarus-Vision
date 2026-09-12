@@ -60,12 +60,16 @@ func (tm *TokenManager) GetToken(ctx context.Context) (string, error) {
 	v.Set("client_id", tm.clientID)
 	v.Set("client_secret", tm.clientSecret)
 
-	req, err := http.NewRequestWithContext(ctx, "POST", tokenURL, strings.NewReader(v.Encode()))
+	ctxTime, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+
+	req, err := http.NewRequestWithContext(ctxTime, "POST", tokenURL, strings.NewReader(v.Encode()))
 	if err != nil {
 		return "", err
 	}
 
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
@@ -96,7 +100,10 @@ func (c *ClientManager) FetchStates(ctx context.Context) (*StatesResponse, error
 		return nil, err
 	}
 
-	req, err := http.NewRequestWithContext(ctx, "GET", statesURL, nil)
+	ctxTime, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+
+	req, err := http.NewRequestWithContext(ctxTime, "GET", statesURL, nil)
 	if err != nil {
 		return nil, err
 	}

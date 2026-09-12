@@ -52,6 +52,7 @@ func (b *Broadcaster) Run(ctx context.Context) {
 				}
 			}
 		case removedTracks := <-b.removedTracks:
+			log.Printf("Broadcaster: received track_removed, ids=%v", removedTracks)
 			var removedAsTracks []domain.Track
 			for _, id := range removedTracks {
 				removedAsTracks = append(removedAsTracks, domain.Track{

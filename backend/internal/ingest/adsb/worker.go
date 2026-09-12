@@ -68,11 +68,20 @@ func (w *Worker) Start(ctx context.Context, out chan<- []domain.Track, outRemove
 			w.ids = currentIDs
 
 			if len(removedIDs) > 0 {
-				outRemoved <- removedIDs
+				select {
+				case outRemoved <- removedIDs:
+					log.Printf("Worker: removedIDs=%v (count=%d)", removedIDs, len(removedIDs))
+				case <-ctx.Done():
+					return ctx.Err()
+				}
 			}
 
 			if len(tracks) > 0 {
-				out <- tracks
+				select {
+				case out <- tracks:
+				case <-ctx.Done():
+					return ctx.Err()
+				}
 			}
 
 			//total vs rejected per tick(perc%)
