@@ -8,22 +8,6 @@ const sections = [
       { label: "Airspace Boundaries", checked: false },
     ],
   },
-  {
-    title: "Environment",
-    items: [
-      { label: "Weather Radar", checked: false },
-      { label: "SIGMET", checked: false },
-      { label: "NOTAMs", checked: false },
-    ],
-  },
-  {
-    title: "Infrastructure",
-    items: [
-      { label: "Airports", checked: true },
-      { label: "Navaids", checked: false },
-      { label: "Sectors", checked: false },
-    ],
-  },
 ];
 
 export default function LayerTree() {

@@ -319,4 +319,8 @@ function applyIcarusTheme(map: Map) {
     map.setPaintProperty(id, "text-opacity", tier.opacity);
     map.setPaintProperty(id, "icon-opacity", 0);
   }
+
+  if (missingLayerIds.size > 0) {
+    console.warn(`Missing layer IDs: ${[...missingLayerIds].join(", ")}`);
+  }
 }

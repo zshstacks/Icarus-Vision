@@ -15,9 +15,22 @@ export default function AppShell() {
       {/* Main content row */}
       <div className="flex flex-1 overflow-hidden">
         {/* Left Sidebar */}
-        <aside className="flex w-64 flex-col border-r border-[#30363D] bg-[#161B22]">
-          <LayerTree />
-          <DataFilters />
+        <aside className="relative flex w-64 flex-col border-r border-[#30363D] bg-[#161B22]">
+          {/* Real content  */}
+          <div className="pointer-events-none select-none opacity-40">
+            <LayerTree />
+            <DataFilters />
+          </div>
+
+          {/* Overlay + badge */}
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-[#0D1117]/60 backdrop-blur-[1px]">
+            <div className="rounded border border-[#30363D] bg-[#161B22] px-3 py-1.5 text-[11px] font-medium uppercase tracking-wider text-[#8B949E]">
+              In development
+            </div>
+            <p className="mt-2 max-w-35 text-center text-[11px] leading-snug text-[#6E7681]">
+              Layers & filters coming soon
+            </p>
+          </div>
         </aside>
 
         {/* Map */}

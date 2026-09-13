@@ -1,10 +1,12 @@
 import { configureStore } from "@reduxjs/toolkit";
 import tracksReducer from "./tracksSlice/tracksSlice";
 import tracksMiddleware from "./tracksSlice/tracksMiddleware";
+import connectionReducer from "./connectionSlice/connectionSlice";
 
 export const store = configureStore({
   reducer: {
     tracks: tracksReducer,
+    connection: connectionReducer,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware().concat(tracksMiddleware),
