@@ -5,6 +5,7 @@ import TelemetryPanel from "../../features/inspector/components/TelemetryPanel";
 // import RouteSummary from "../../features/inspector/components/RouteSummary";
 import StatusBar from "../../features/statusbar/components/StatusBar";
 import MapView from "../../features/map/components/MapView";
+import MapSearch from "../../features/map/components/MapSearch";
 
 export default function AppShell() {
   return (
@@ -38,6 +39,7 @@ export default function AppShell() {
           <div className="absolute inset-0">
             <MapView />
           </div>
+          <MapSearch />
         </main>
 
         {/* Right Inspector */}

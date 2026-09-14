@@ -6,7 +6,7 @@ export default function TopNav() {
       {/* Left: Logo + Nav links */}
       <div className="flex items-center gap-6">
         <div className="flex items-center gap-2">
-          <div className="flex h-6 w-6 items-center justify-center rounded  text-[#39C5CF]">
+          <div className="flex h-6 w-6 items-center justify-center rounded text-[#39C5CF]">
             <Target />
           </div>
           <span className="text-sm font-semibold tracking-wide text-[#E6EDF3]">
@@ -35,7 +35,7 @@ export default function TopNav() {
         </nav>
       </div>
 
-      {/* Right:   user */}
+      {/* Right: user */}
       <div className="flex items-center gap-4 text-sm">
         <button className="text-[#8B949E] hover:text-[#E6EDF3]">⚙</button>
         <button className="text-[#8B949E] hover:text-[#E6EDF3]">?</button>
