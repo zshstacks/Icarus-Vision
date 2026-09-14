@@ -1,7 +1,8 @@
 import type { Map, GeoJSONSource } from "maplibre-gl";
-import { useSelector } from "react-redux";
-import type { RootState } from "../../../redux/store";
+import { useDispatch, useSelector } from "react-redux";
+import type { AppDispatch, RootState } from "../../../redux/store";
 import { useEffect, useMemo } from "react";
+import { trackSelected } from "../../../redux/selectSlice/selectSlice";
 
 interface TrackLayerState {
   map: Map | null;
@@ -39,6 +40,7 @@ function loadAircraftIcon(map: Map): Promise<void> {
 export default function TrackLayer({ map }: TrackLayerState) {
   const track = useSelector((state: RootState) => state.tracks.tracks);
   const arr = useMemo(() => Object.values(track), [track]);
+  const dispatch: AppDispatch = useDispatch();
 
   useEffect(() => {
     if (!map) return;
@@ -72,6 +74,24 @@ export default function TrackLayer({ map }: TrackLayerState) {
             "icon-color": "#D5DEE6",
             "icon-opacity": 1,
           },
+        });
+
+        //to select the needed plane
+        map.on("click", LAYER_ID, (e) => {
+          const feature = e.features?.[0];
+          if (feature?.properties?.id != null) {
+            dispatch(trackSelected(String(feature.properties.id)));
+          }
+        });
+
+        //to deselect plane
+        map.on("click", (e) => {
+          const hits = map.queryRenderedFeatures(e.point, {
+            layers: [LAYER_ID],
+          });
+          if (hits.length === 0) {
+            dispatch(trackSelected(null));
+          }
         });
       })
       .catch((err) => {
