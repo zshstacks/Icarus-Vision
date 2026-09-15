@@ -1,7 +1,8 @@
 import type { Middleware } from "@reduxjs/toolkit";
 import { trackRemoved, trackUpdated } from "./tracksSlice";
-import type { eventType } from "../../utility/types/reduxTypes";
+import type { eventType, tracksType } from "../../utility/types/reduxTypes";
 import { connectionChanged } from "../connectionSlice/connectionSlice";
+import api from "../api";
 
 //outer layer runs only once when the middlware is registered
 const tracksMiddleware: Middleware = (store) => {
@@ -9,6 +10,16 @@ const tracksMiddleware: Middleware = (store) => {
   let retryDelay = 1000;
   let attemptCounter = 0;
   let retryTimer: ReturnType<typeof setTimeout> | null = null;
+
+  async function loadSnapshot() {
+    try {
+      const res = await api.get("/api/tracks");
+      const data: tracksType[] = res.data;
+      store.dispatch(trackUpdated(data));
+    } catch (error) {
+      console.warn("[tracksMiddleware] snapshot load failed: ", error);
+    }
+  }
 
   function clearRetryTimer() {
     if (retryTimer !== null) {
@@ -77,7 +88,7 @@ const tracksMiddleware: Middleware = (store) => {
     };
   }
 
-  connect();
+  loadSnapshot().then(connect);
 
   return (next) => (action: any) => {
     if (action.type === "tracks/reconnectRequested") {

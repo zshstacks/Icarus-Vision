@@ -1,7 +1,7 @@
 import type { Map, GeoJSONSource } from "maplibre-gl";
 import { useDispatch, useSelector } from "react-redux";
 import type { AppDispatch, RootState } from "../../../redux/store";
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { trackSelected } from "../../../redux/selectSlice/selectSlice";
 
 interface TrackLayerState {
@@ -42,9 +42,15 @@ export default function TrackLayer({ map }: TrackLayerState) {
   const arr = useMemo(() => Object.values(track), [track]);
   const dispatch: AppDispatch = useDispatch();
 
+  //track geojson source + layer have been added
+  const [sourceReady, setSourceReady] = useState(false);
+
   useEffect(() => {
     if (!map) return;
-    if (map.getSource(SOURCE_ID)) return;
+    if (map.getSource(SOURCE_ID)) {
+      setSourceReady(true);
+      return;
+    }
 
     let cancelled = false;
 
@@ -93,6 +99,7 @@ export default function TrackLayer({ map }: TrackLayerState) {
             dispatch(trackSelected(null));
           }
         });
+        setSourceReady(true);
       })
       .catch((err) => {
         console.error("[TrackLayer] failed to load aircraft icon:", err);
@@ -101,10 +108,11 @@ export default function TrackLayer({ map }: TrackLayerState) {
     return () => {
       cancelled = true;
     };
-  }, [map]);
+  }, [map, dispatch]);
 
+  //push data whenevenr arr changes or when the source becomes ready
   useEffect(() => {
-    if (!map) return;
+    if (!map || !sourceReady) return;
 
     const features = arr.map((track) => ({
       type: "Feature" as const,
@@ -131,7 +139,7 @@ export default function TrackLayer({ map }: TrackLayerState) {
         features,
       });
     }
-  }, [arr, map]);
+  }, [arr, map, sourceReady]);
 
   if (!map) return null;
 }
