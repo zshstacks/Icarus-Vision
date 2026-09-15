@@ -94,7 +94,8 @@ func (r *TrackRepo) GetAllLatest(ctx context.Context) ([]domain.Track, error) {
     heading, 
     vertical_rate, 
     recorded_at 
-FROM tracks_latest;
+FROM tracks_latest
+WHERE recorded_at > now() - interval '5 minutes';
 	`
 
 	rows, err := r.pool.Query(ctx, q)
