@@ -122,9 +122,14 @@ const LABEL_TIERS: Record<string, LabelTier> = {
   },
 };
 
-export default function MapView() {
+type MapViewProps = {
+  onMapReady?: (map: Map) => void;
+  map: Map | null;
+};
+
+export default function MapView({ map, onMapReady }: MapViewProps) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
-  const [map, setMap] = useState<Map | null>(null);
+
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
@@ -142,8 +147,8 @@ export default function MapView() {
     mapInstance.on("load", () => {
       applyIcarusTheme(mapInstance);
       mapInstance.resize();
-      setMap(mapInstance);
 
+      onMapReady?.(mapInstance);
       requestAnimationFrame(() => setReady(true));
     });
 
