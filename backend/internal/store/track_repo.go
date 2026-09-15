@@ -79,3 +79,47 @@ func (r *TrackRepo) InsertPosition(ctx context.Context, t domain.Track) error {
 	return err
 
 }
+
+// get all current track records from track_latest for the latest snapshot
+func (r *TrackRepo) GetAllLatest(ctx context.Context) ([]domain.Track, error) {
+	const q = `
+		SELECT 
+    id, 
+    callsign, 
+    lat, 
+    lon, 
+    altitude, 
+    on_ground, 
+    speed, 
+    heading, 
+    vertical_rate, 
+    recorded_at 
+FROM tracks_latest;
+	`
+
+	rows, err := r.pool.Query(ctx, q)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var tracks []domain.Track
+	var recordedAt time.Time
+
+	for rows.Next() {
+		var t domain.Track
+
+		err := rows.Scan(&t.ID, &t.Callsign, &t.Lat, &t.Lon, &t.Altitude, &t.OnGround, &t.Speed, &t.Heading, &t.VerticalRate, &recordedAt)
+		if err != nil {
+			return nil, err
+		}
+		t.Timestamp = recordedAt.Unix()
+		tracks = append(tracks, t)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return tracks, nil
+}

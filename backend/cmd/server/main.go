@@ -72,6 +72,7 @@ func main() {
 	})
 
 	handler := ws.NewHandler(hub, ctx)
+	tracksHandler := http2.NewTracksHandler(trackRepo)
 
 	e := echo.New()
 
@@ -87,7 +88,7 @@ func main() {
 		MaxAge:           int((24 * time.Hour) / time.Millisecond),
 	}))
 
-	http2.RegisterRoutes(e, handler)
+	http2.RegisterRoutes(e, handler, tracksHandler)
 
 	port := fmt.Sprintf(":%s", cfg.Server.Port)
 
