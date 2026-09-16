@@ -1,15 +1,162 @@
+import { useEffect, useState } from "react";
 import { useSelector } from "react-redux";
 import type { RootState } from "../../../redux/store";
-import { useEffect, useState } from "react";
+
+function formatLastUpdate(timestampSeconds: number): string {
+  const nowInSeconds = Math.floor(Date.now() / 1000);
+  const elapsedSeconds = Math.max(0, nowInSeconds - timestampSeconds);
+
+  if (elapsedSeconds < 10) return "just now";
+  if (elapsedSeconds < 60) return `${elapsedSeconds}s ago`;
+
+  const elapsedMinutes = Math.floor(elapsedSeconds / 60);
+  if (elapsedMinutes < 60) return `${elapsedMinutes}m ago`;
+
+  return `${Math.floor(elapsedMinutes / 60)}h ago`;
+}
+
+function formatCoordinate(
+  value: number | null | undefined,
+  positive: string,
+  negative: string,
+): string {
+  if (value == null) return "N/A";
+  return `${Math.abs(value).toFixed(4)}° ${value >= 0 ? positive : negative}`;
+}
+
+function formatNumber(value: number | null | undefined, decimals = 0): string {
+  if (value == null) return "N/A";
+  return value.toLocaleString("en-US", {
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals,
+  });
+}
+
+function getVerticalRate(rate: number | null | undefined) {
+  if (rate == null) {
+    return { value: "N/A", className: "text-[#8B949E]", arrow: "" };
+  }
+  if (rate > 0) {
+    return {
+      value: `+${formatNumber(rate)} fpm`,
+      className: "text-[#3FB950]",
+      arrow: "↑",
+    };
+  }
+  if (rate < 0) {
+    return {
+      value: `${formatNumber(rate)} fpm`,
+      className: "text-[#F85149]",
+      arrow: "↓",
+    };
+  }
+  return { value: "0 fpm", className: "text-[#8B949E]", arrow: "" };
+}
+
+function HeadingIndicator({ heading }: { heading: number | null | undefined }) {
+  if (heading == null) {
+    return (
+      <div className="flex h-28 items-center justify-center text-xs text-[#6E7681]">
+        N/A
+      </div>
+    );
+  }
+
+  const normalized = ((heading % 360) + 360) % 360;
+  const ticks = Array.from({ length: 12 }, (_, i) => i * 30);
+
+  return (
+    <div className="relative mx-auto mt-3 flex h-28 w-28 items-center justify-center">
+      <svg
+        viewBox="0 0 120 120"
+        className="absolute inset-0 h-full w-full"
+        aria-hidden
+      >
+        <circle
+          cx="60"
+          cy="60"
+          r="54"
+          fill="none"
+          stroke="#21262D"
+          strokeWidth="1.5"
+        />
+        <circle
+          cx="60"
+          cy="60"
+          r="48"
+          fill="none"
+          stroke="#30363D"
+          strokeWidth="1"
+        />
+
+        {ticks.map((deg) => {
+          const isCardinal = deg % 90 === 0;
+          const rad = ((deg - 90) * Math.PI) / 180;
+          const outer = 48;
+          const inner = isCardinal ? 38 : 42;
+          return (
+            <line
+              key={deg}
+              x1={60 + outer * Math.cos(rad)}
+              y1={60 + outer * Math.sin(rad)}
+              x2={60 + inner * Math.cos(rad)}
+              y2={60 + inner * Math.sin(rad)}
+              stroke={isCardinal ? "#8B949E" : "#30363D"}
+              strokeWidth={isCardinal ? 1.5 : 1}
+            />
+          );
+        })}
+
+        {[
+          { label: "N", deg: 0 },
+          { label: "E", deg: 90 },
+          { label: "S", deg: 180 },
+          { label: "W", deg: 270 },
+        ].map(({ label, deg }) => {
+          const rad = ((deg - 90) * Math.PI) / 180;
+          const r = 32;
+          return (
+            <text
+              key={label}
+              x={60 + r * Math.cos(rad)}
+              y={60 + r * Math.sin(rad)}
+              textAnchor="middle"
+              dominantBaseline="middle"
+              className="fill-[#E6EDF3] text-[10px] font-medium"
+            >
+              {label}
+            </text>
+          );
+        })}
+
+        <g
+          style={{
+            transform: `rotate(${normalized}deg)`,
+            transformOrigin: "60px 60px",
+            transition: "transform 300ms ease-out",
+          }}
+        >
+          <polygon points="60,18 64,60 60,66 56,60" fill="#58A6FF" />
+          <polygon points="60,66 63,78 60,74 57,78" fill="#8B949E" />
+          <circle cx="60" cy="60" r="3.5" fill="#E6EDF3" />
+        </g>
+      </svg>
+
+      <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 font-mono text-[12px] tabular-nums text-[#E6EDF3]">
+        {normalized.toFixed(0).padStart(3, "0")}°
+      </div>
+    </div>
+  );
+}
 
 export default function TelemetryPanel() {
   const selectedTrack = useSelector((state: RootState) => {
     const id = state.selection.id;
     return id ? state.tracks.tracks[id] : null;
   });
-  const [, setTick] = useState(0);
 
-  //force a re-render every second for (Xs ago)
+  const [tick, setTick] = useState(0);
+
   useEffect(() => {
     if (!selectedTrack) return;
     const id = setInterval(() => setTick((t) => t + 1), 1000);
@@ -18,169 +165,124 @@ export default function TelemetryPanel() {
 
   if (!selectedTrack) {
     return (
-      <div className="border-b border-[#30363D]">
-        <div className="flex items-center justify-between px-4 py-3">
-          <span className="text-xs font-semibold tracking-wider text-[#8B949E]">
-            AIRCRAFT TELEMETRY
-          </span>
+      <div className="flex min-h-44 flex-col items-center justify-center px-6 text-center">
+        <div className="text-[13px] font-medium text-[#8B949E]">
+          No aircraft selected
         </div>
-        <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
-          <div className="text-xs font-mono font-medium text-[#8B949E] tracking-wide">
-            NO TARGET SELECTED
-          </div>
-          <p className="mt-1 text-[#6E7681] text-xs">
-            Select an aircraft on the map to inspect telemetry data.
-          </p>
-        </div>
+        <p className="mt-2 max-w-48 text-[12px] leading-relaxed text-[#6E7681]">
+          Select an aircraft on the map to inspect its telemetry.
+        </p>
       </div>
     );
   }
 
-  function formatLastUpdate(timestampSeconds: number): string {
-    const nowInSeconds = Math.floor(Date.now() / 1000);
-    const elapsedSeconds = Math.max(0, nowInSeconds - timestampSeconds);
+  void tick; // keep last update fresh
 
-    if (elapsedSeconds < 10) {
-      return "just now";
-    }
-
-    if (elapsedSeconds < 60) {
-      return `${elapsedSeconds}s ago`;
-    }
-
-    const elapsedMinutes = Math.floor(elapsedSeconds / 60);
-    return `${elapsedMinutes}m ago`;
-  }
-
-  function formatVerticalRate(rate: number | null): {
-    text: string;
-    className: string;
-    arrow: string | null;
-    arrowClass: string;
-  } {
-    if (rate == null) {
-      return {
-        text: "N/A",
-        className: "text-[#E6EDF3]",
-        arrow: null,
-        arrowClass: "",
-      };
-    }
-
-    if (rate > 0) {
-      return {
-        text: `+${rate} fpm ↑`,
-        className: "text-[#3FB950]",
-        arrow: "↑",
-        arrowClass: "text-[#3FB950]",
-      };
-    }
-
-    if (rate < 0) {
-      return {
-        text: `${rate} fpm ↓`,
-        className: "text-[#F85149]",
-        arrow: "↓",
-        arrowClass: "text-[#F85149]",
-      };
-    }
-
-    return {
-      text: "0 fpm",
-      className: "text-[#E6EDF3]",
-      arrow: null,
-      arrowClass: "",
-    };
-  }
-
-  const {
-    text: vrText,
-    className: vrClass,
-    arrow: vrArrow,
-    arrowClass: vrArrowClass,
-  } = formatVerticalRate(selectedTrack.vertical_rate);
+  const verticalRate = getVerticalRate(selectedTrack.vertical_rate);
+  const lastUpdate = formatLastUpdate(selectedTrack.timestamp);
+  const isRecent = Math.floor(Date.now() / 1000) - selectedTrack.timestamp < 60;
 
   return (
-    <div className="border-b border-[#30363D]">
-      <div className="flex items-center justify-between px-4 py-3">
-        <span className="text-xs font-semibold tracking-wider text-[#8B949E]">
-          AIRCRAFT TELEMETRY
-        </span>
-        <button className="text-[#6E7681] hover:text-[#E6EDF3]">▴</button>
+    <div>
+      {/* identity */}
+      <div className="px-4 py-3.5">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <div className="mb-0.5 text-[11px] text-[#6E7681]">Aircraft</div>
+            <div className="font-mono text-lg font-medium tracking-tight">
+              {selectedTrack.callsign ?? "N/A"}
+            </div>
+          </div>
+          <div className="flex items-center gap-1.5 pt-1">
+            <span
+              className={`h-1.5 w-1.5 rounded-full ${
+                isRecent ? "bg-[#58A6FF]" : "bg-[#6E7681]"
+              }`}
+            />
+            <span
+              className={`text-[11px] ${
+                isRecent ? "text-[#58A6FF]" : "text-[#6E7681]"
+              }`}
+            >
+              {isRecent ? "Live" : "Stale"}
+            </span>
+          </div>
+        </div>
       </div>
 
-      <div className="space-y-4 px-4 pb-4">
-        {/* Header */}
-        <div>
-          <div className="text-lg font-semibold text-[#E6EDF3]">
-            {selectedTrack.callsign ?? "N/A"}
+      <div className="h-px bg-[#21262D]" />
+
+      {/* primary numbers */}
+      <div className="px-4 py-4">
+        <div className="grid grid-cols-2 gap-x-6">
+          <div>
+            <div className="mb-1 text-[11px] text-[#6E7681]">Altitude</div>
+            <div className="font-mono text-[28px] font-medium leading-none tracking-tight tabular-nums">
+              {formatNumber(selectedTrack.altitude)}
+              <span className="ml-1.5 text-[13px] font-normal text-[#8B949E]">
+                ft
+              </span>
+            </div>
+          </div>
+          <div>
+            <div className="mb-1 text-[11px] text-[#6E7681]">Ground speed</div>
+            <div className="font-mono text-[28px] font-medium leading-none tracking-tight tabular-nums">
+              {formatNumber(selectedTrack.speed)}
+              <span className="ml-1.5 text-[13px] font-normal text-[#8B949E]">
+                kt
+              </span>
+            </div>
           </div>
         </div>
 
-        {/* Key / Value grid */}
-        <div className="grid grid-cols-2 gap-x-4 gap-y-2.5 text-sm">
-          <div className="text-[#8B949E]">Callsign</div>
-          <div className="text-right font-mono text-[#E6EDF3]">
-            {selectedTrack.callsign ?? "N/A"}
+        <div className="mt-5 grid grid-cols-2 gap-x-6">
+          <div>
+            <div className="mb-0.5 text-[11px] text-[#6E7681]">
+              Vertical rate
+            </div>
+            <div
+              className={`flex items-center gap-1 font-mono text-[13px] tabular-nums ${verticalRate.className}`}
+            >
+              {verticalRate.arrow && (
+                <span className="text-[11px]">{verticalRate.arrow}</span>
+              )}
+              <span>{verticalRate.value}</span>
+            </div>
           </div>
-
-          <div className="text-[#8B949E]">Altitude</div>
-          <div className="text-right font-mono text-[#E6EDF3]">
-            {selectedTrack.altitude != null ? (
-              <>
-                {selectedTrack.altitude}
-                {vrArrow != null && (
-                  <>
-                    {" "}
-                    <span className={vrArrowClass}>{vrArrow}</span>
-                  </>
-                )}
-              </>
-            ) : (
-              "N/A"
-            )}
-          </div>
-
-          <div className="text-[#8B949E]">Ground Speed</div>
-          <div className="text-right font-mono text-[#E6EDF3]">
-            {selectedTrack.speed != null ? `${selectedTrack.speed} kt` : "N/A"}
-          </div>
-
-          <div className="text-[#8B949E]">Track</div>
-          <div className="text-right font-mono text-[#E6EDF3]">
-            {selectedTrack.heading != null
-              ? `${selectedTrack.heading}°`
-              : "N/A"}
-          </div>
-
-          <div className="text-[#8B949E]">Vertical Rate</div>
-          <div className={`text-right font-mono ${vrClass}`}>{vrText}</div>
-
-          <div className="text-[#8B949E]">Last Update</div>
-          <div className="text-right font-mono text-[#E6EDF3]">
-            {formatLastUpdate(selectedTrack.timestamp)}
+          <div>
+            <div className="mb-0.5 text-[11px] text-[#6E7681]">Last update</div>
+            <div className="font-mono text-[13px] tabular-nums text-[#8B949E]">
+              {lastUpdate}
+            </div>
           </div>
         </div>
-        {/* Position block */}
-        <div className="rounded border border-[#30363D] bg-[#1C2128] p-3">
-          <div className="mb-2 text-xs font-semibold tracking-wider text-[#8B949E]">
-            POSITION
+      </div>
+
+      <div className="h-px bg-[#21262D]" />
+
+      {/* heading */}
+      <div className="px-4 py-4">
+        <div className="mb-1 text-[11px] text-[#6E7681]">Heading</div>
+        <HeadingIndicator heading={selectedTrack.heading} />
+      </div>
+
+      <div className="h-px bg-[#21262D]" />
+
+      {/* position */}
+      <div className="px-4 py-4">
+        <div className="mb-3 text-[11px] text-[#6E7681]">Position</div>
+        <div className="space-y-2.5">
+          <div className="flex items-center justify-between gap-4">
+            <span className="text-[12px] text-[#6E7681]">Latitude</span>
+            <span className="font-mono text-[12px] tabular-nums">
+              {formatCoordinate(selectedTrack.lat, "N", "S")}
+            </span>
           </div>
-          <div className="grid grid-cols-2 gap-y-1.5 text-sm">
-            <div className="text-[#8B949E]">Latitude</div>
-            <div className="text-right font-mono text-[#E6EDF3]">
-              {selectedTrack.lat}° N
-            </div>
-            <div className="text-[#8B949E]">Longitude</div>
-            <div className="text-right font-mono text-[#E6EDF3]">
-              {selectedTrack.lon}° W
-            </div>
-            <div className="text-[#8B949E]">Heading</div>
-            <div className="text-right font-mono text-[#E6EDF3]">
-              {selectedTrack.heading != null
-                ? `${selectedTrack.heading}°`
-                : "N/A"}
-            </div>
+          <div className="flex items-center justify-between gap-4">
+            <span className="text-[12px] text-[#6E7681]">Longitude</span>
+            <span className="font-mono text-[12px] tabular-nums">
+              {formatCoordinate(selectedTrack.lon, "E", "W")}
+            </span>
           </div>
         </div>
       </div>
