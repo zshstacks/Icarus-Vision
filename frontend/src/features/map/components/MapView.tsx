@@ -148,6 +148,16 @@ export default function MapView({ map, onMapReady }: MapViewProps) {
       applyIcarusTheme(mapInstance);
       mapInstance.resize();
 
+      mapInstance.getCanvas().style.cursor = "pointer";
+
+      mapInstance.on("dragstart", () => {
+        mapInstance.getCanvas().style.cursor = "grabbing";
+      });
+
+      mapInstance.on("dragend", () => {
+        mapInstance.getCanvas().style.cursor = "pointer";
+      });
+
       onMapReady?.(mapInstance);
       requestAnimationFrame(() => setReady(true));
     });
