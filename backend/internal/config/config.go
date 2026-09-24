@@ -4,6 +4,7 @@ import (
 	"log"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/joho/godotenv"
 )
@@ -14,6 +15,7 @@ type AppConfig struct {
 	CORS        CorsConfig
 	OpenSky     OpenSkyConfig
 	Database    DatabaseConfig
+	JWT         JWTConfig
 }
 
 type ServerConfig struct {
@@ -33,6 +35,12 @@ type CorsConfig struct {
 type OpenSkyConfig struct {
 	ClientID     string
 	ClientSecret string
+}
+
+type JWTConfig struct {
+	Secret          string
+	AccessTokenTTL  time.Duration
+	RefreshTokenTTL time.Duration
 }
 
 func LoadConfig() AppConfig {
@@ -56,6 +64,11 @@ func LoadConfig() AppConfig {
 		log.Fatal("Missing DATABASE_URL")
 	}
 
+	jwtSecret := getEnv("JWT_SECRET", "")
+	if jwtSecret == "" {
+		log.Fatal("Missing JWT_SECRET")
+	}
+
 	return AppConfig{
 		Environment: env,
 		Server: ServerConfig{
@@ -72,6 +85,11 @@ func LoadConfig() AppConfig {
 		},
 		Database: DatabaseConfig{
 			URL: dbURL,
+		},
+		JWT: JWTConfig{
+			Secret:          jwtSecret,
+			AccessTokenTTL:  15 * time.Minute,
+			RefreshTokenTTL: 7 * 24 * time.Hour,
 		},
 	}
 }
