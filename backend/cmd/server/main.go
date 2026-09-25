@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"icarus-vision/internal/auth"
 	"icarus-vision/internal/broadcaster"
 	"icarus-vision/internal/config"
 	"icarus-vision/internal/domain"
@@ -42,6 +43,10 @@ func main() {
 	}
 	defer pool.Close()
 
+	authRepo := auth.NewAuthRepo(pool)
+	authService := auth.NewAuthService(authRepo, cfg.JWT)
+	authHandler := auth.NewAuthHandler(authService, cfg.JWT)
+
 	hub := ws.NewHub()
 
 	tokenManager := adsb.NewTokenManager(cfg.OpenSky.ClientID, cfg.OpenSky.ClientSecret)
@@ -71,7 +76,7 @@ func main() {
 		hub.Run(ctx)
 	})
 
-	handler := ws.NewHandler(hub, ctx)
+	handler := ws.NewHandler(hub, ctx, cfg.JWT.Secret)
 	tracksHandler := http2.NewTracksHandler(trackRepo)
 
 	e := echo.New()
@@ -88,7 +93,7 @@ func main() {
 		MaxAge:           int((24 * time.Hour) / time.Millisecond),
 	}))
 
-	http2.RegisterRoutes(e, handler, tracksHandler)
+	http2.RegisterRoutes(e, handler, tracksHandler, authHandler, cfg.JWT.Secret)
 
 	port := fmt.Sprintf(":%s", cfg.Server.Port)
 

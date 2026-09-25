@@ -41,6 +41,7 @@ type JWTConfig struct {
 	Secret          string
 	AccessTokenTTL  time.Duration
 	RefreshTokenTTL time.Duration
+	SecureCookie    bool
 }
 
 func LoadConfig() AppConfig {
@@ -90,6 +91,7 @@ func LoadConfig() AppConfig {
 			Secret:          jwtSecret,
 			AccessTokenTTL:  15 * time.Minute,
 			RefreshTokenTTL: 7 * 24 * time.Hour,
+			SecureCookie:    isProd,
 		},
 	}
 }
