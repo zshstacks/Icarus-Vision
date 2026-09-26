@@ -18,5 +18,6 @@ func RegisterRoutes(e *echo.Echo, h *ws.Handler, tracksHandler *TracksHandler, a
 
 	api := e.Group("/api")
 	api.Use(auth.JWTMiddleware(jwtSecret))
+	api.GET("/me", authHandler.Me)
 	api.GET("/tracks", tracksHandler.GetTracks)
 }

@@ -21,6 +21,12 @@ type AuthRequest struct {
 	Password string `json:"password"`
 }
 
+// return the auth users ID, reached only through middleware
+func (h *AuthHandler) Me(c *echo.Context) error {
+	userID, _ := c.Get("user_id").(string)
+	return c.JSON(http.StatusOK, map[string]string{"user_id": userID})
+}
+
 func (h *AuthHandler) Register(c *echo.Context) error {
 	var req AuthRequest
 	if err := c.Bind(&req); err != nil {
