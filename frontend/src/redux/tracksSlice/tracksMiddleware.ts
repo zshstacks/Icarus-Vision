@@ -1,10 +1,15 @@
 import type { Middleware } from "@reduxjs/toolkit";
-import { trackRemoved, trackUpdated } from "./tracksSlice";
+import {
+  trackRemoved,
+  trackUpdated,
+  connectTracks,
+  disconnectTracks,
+  reconnectTracks,
+} from "./tracksSlice";
 import type { eventType, tracksType } from "../../utility/types/reduxTypes";
 import { connectionChanged } from "../connectionSlice/connectionSlice";
 import api from "../api";
 
-//outer layer runs only once when the middlware is registered
 const tracksMiddleware: Middleware = (store) => {
   let ws: WebSocket | null = null;
   let retryDelay = 1000;
@@ -25,6 +30,18 @@ const tracksMiddleware: Middleware = (store) => {
     if (retryTimer !== null) {
       clearTimeout(retryTimer);
       retryTimer = null;
+    }
+  }
+
+  function teardownSocket() {
+    clearRetryTimer();
+    if (ws) {
+      ws.onopen = null;
+      ws.onmessage = null;
+      ws.onclose = null;
+      ws.onerror = null;
+      ws.close();
+      ws = null;
     }
   }
 
@@ -66,7 +83,7 @@ const tracksMiddleware: Middleware = (store) => {
 
     ws.onopen = () => {
       clearRetryTimer();
-      retryDelay = 1000; //reset when user actually connected
+      retryDelay = 1000;
       attemptCounter = 0;
       store.dispatch(connectionChanged("connected"));
     };
@@ -88,15 +105,28 @@ const tracksMiddleware: Middleware = (store) => {
     };
   }
 
-  loadSnapshot().then(connect);
-
   return (next) => (action: any) => {
-    if (action.type === "tracks/reconnectRequested") {
-      attemptCounter = 0; //user manuall attempts
+    if (connectTracks.match(action)) {
+      attemptCounter = 0;
+      retryDelay = 1000;
+
+      loadSnapshot().then(connect);
+    }
+
+    if (disconnectTracks.match(action)) {
+      attemptCounter = 0;
+      retryDelay = 1000;
+      teardownSocket();
+      store.dispatch(connectionChanged("disconnected"));
+    }
+
+    if (reconnectTracks.match(action)) {
+      attemptCounter = 0;
       retryDelay = 1000;
       connect();
     }
-    return next(action); //middle + inner layers
+
+    return next(action);
   };
 };
 

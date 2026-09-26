@@ -1,6 +1,8 @@
 import { useDispatch, useSelector } from "react-redux";
 import type { AppDispatch, RootState } from "../../../redux/store";
 import { RotateCcw } from "lucide-react";
+import { reconnectTracks } from "../../../redux/tracksSlice/tracksSlice";
+
 const statusConfig = {
   connected: {
     label: "Connected",
@@ -33,7 +35,7 @@ export default function ConnectionStatus() {
       {status === "disconnected" && (
         <button
           type="button"
-          onClick={() => dispatch({ type: "tracks/reconnectRequested" })}
+          onClick={() => dispatch(reconnectTracks())}
           className="rounded cursor-pointer uppercase tracking-wider text-[#F85149] transition-colors hover:text-[#FF7B72]"
         >
           <RotateCcw size={18} />

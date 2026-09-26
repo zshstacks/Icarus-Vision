@@ -2,14 +2,7 @@ import { Settings, HelpCircle, Bell } from "lucide-react";
 
 export default function TopNav() {
   return (
-    <header
-      className="
-        flex h-11 shrink-0 items-center justify-between
-        border-b border-[#30363D]/80
-        bg-[#161B22]/90 backdrop-blur-md
-        px-4
-      "
-    >
+    <header className="flex h-11 shrink-0 items-center justify-between border-b border-[#30363D]/80 bg-[#161B22]/90 backdrop-blur-md px-4">
       {/* logo and title */}
       <div className="flex items-center gap-3">
         <div className="flex h-7 w-7 items-center justify-center rounded-md bg-[#21262D]">

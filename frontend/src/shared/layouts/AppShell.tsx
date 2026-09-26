@@ -54,16 +54,7 @@ export default function AppShell() {
         </aside> */}
 
         {/*inspector*/}
-        <aside
-          className="
-    absolute right-3 top-3 bottom-3 z-20
-    flex w-80 flex-col
-    rounded-xl border border-[#30363D]/80
-    bg-[#161B22]/95 backdrop-blur-xl
-    shadow-[0_8px_32px_rgba(0,0,0,0.4)]
-    overflow-hidden
-  "
-        >
+        <aside className="absolute right-3 top-3 bottom-3 z-20flex w-80 flex-col rounded-xl border border-[#30363D]/80 bg-[#161B22]/95 backdrop-blur-xl shadow-xl shadow-black overflow-hidden">
           {/* header */}
           <div className="flex items-center justify-between px-4 py-2.5">
             <span className="text-[11px] font-medium text-[#6E7681]">

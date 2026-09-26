@@ -23,8 +23,21 @@ const tracksSlice = createSlice({
         delete state.tracks[track];
       });
     },
+
+    connectTracks: () => {},
+
+    disconnectTracks: () => {},
+
+    reconnectTracks: () => {},
   },
 });
 
-export const { trackUpdated, trackRemoved } = tracksSlice.actions;
+export const {
+  trackUpdated,
+  trackRemoved,
+  connectTracks,
+  disconnectTracks,
+  reconnectTracks,
+} = tracksSlice.actions;
+
 export default tracksSlice.reducer;
