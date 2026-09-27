@@ -39,7 +39,6 @@ const Login = () => {
               backgroundSize: "40px 40px",
             }}
           />
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-200 h-200 bg-[#39C5CF] rounded-full blur-[150px] opacity-[0.04]" />
         </div>
 
         <div className="relative z-10 w-full max-w-115 bg-[#161B22] border border-[#30363D] rounded-xl shadow-2xl p-10">
