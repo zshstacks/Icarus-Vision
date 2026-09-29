@@ -20,4 +20,5 @@ func RegisterRoutes(e *echo.Echo, h *ws.Handler, tracksHandler *TracksHandler, a
 	api.Use(auth.JWTMiddleware(jwtSecret))
 	api.GET("/me", authHandler.Me)
 	api.GET("/tracks", tracksHandler.GetTracks)
+	api.GET("/tracks/:id/history", tracksHandler.GetHistory)
 }
