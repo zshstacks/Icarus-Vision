@@ -12,3 +12,11 @@ type Track struct {
 	VerticalRate *float64 `json:"vertical_rate"` // how fast a plane is climbing or descending
 	Timestamp    int64    `json:"timestamp"`     //exact time of planes position
 }
+
+// single historical row from track_position
+type Position struct {
+	Lat       float64  `json:"lat"`
+	Lon       float64  `json:"lon"`
+	Altitude  *float64 `json:"altitude,omitempty"`
+	Timestamp int64    `json:"timestamp"`
+}

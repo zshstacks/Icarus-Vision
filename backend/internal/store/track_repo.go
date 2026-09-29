@@ -124,3 +124,33 @@ WHERE recorded_at > now() - interval '5 minutes';
 
 	return tracks, nil
 }
+
+// oldes first, plane that sit on the ground can produce same timestamp across two polls
+func (r *TrackRepo) GetTrail(ctx context.Context, trackID string, minutes int) ([]domain.Position, error) {
+	const q = `SELECT DISTINCT lat, lon, altitude, recorded_at
+			FROM track_positions
+			WHERE track_id = $1
+			  AND recorded_at > now() - ($2::int * interval '1 minute')
+			ORDER BY recorded_at ASC`
+
+	rows, err := r.pool.Query(ctx, q, trackID, minutes)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var positions []domain.Position
+	for rows.Next() {
+		var (
+			p          domain.Position
+			recordedAt time.Time
+		)
+
+		if err := rows.Scan(&p.Lat, &p.Lon, &p.Altitude, &recordedAt); err != nil {
+			return nil, err
+		}
+		p.Timestamp = recordedAt.Unix()
+		positions = append(positions, p)
+	}
+	return positions, rows.Err()
+}

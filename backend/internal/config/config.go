@@ -97,6 +97,7 @@ func LoadConfig() AppConfig {
 }
 
 // Helpers
+
 func getEnv(key, defaultVal string) string {
 	if value := os.Getenv(key); value != "" {
 		return value
