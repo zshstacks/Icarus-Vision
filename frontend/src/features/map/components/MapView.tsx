@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Map, type ExpressionSpecification } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import TrackLayer from "./TrackLayer";
+import TrailLayer from "./TrailLayer";
 
 const PALETTE = {
   //Core surfaces
@@ -184,6 +185,8 @@ export default function MapView({ map, onMapReady }: MapViewProps) {
         />
       )}
 
+      {/* Trail goes under the aircraft icons. Mount order = layer order. */}
+      <TrailLayer map={map} />
       <TrackLayer map={map} />
     </div>
   );
