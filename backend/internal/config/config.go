@@ -20,6 +20,8 @@ type AppConfig struct {
 
 type ServerConfig struct {
 	Port string
+
+	TrustedProxies []string
 }
 
 type DatabaseConfig struct {
@@ -55,9 +57,8 @@ func LoadConfig() AppConfig {
 
 	clientID := getEnv("OPEN_SKY_CLIENT_ID", "")
 	clientSecret := getEnv("OPEN_SKY_CLIENT_SECRET", "")
-
 	if clientID == "" || clientSecret == "" {
-		log.Fatal("Missing OpenSky	 client ID or client secret")
+		log.Fatal("Missing OpenSky client ID or client secret")
 	}
 
 	dbURL := getEnv("DATABASE_URL", "")
@@ -70,10 +71,13 @@ func LoadConfig() AppConfig {
 		log.Fatal("Missing JWT_SECRET")
 	}
 
+	trustedProxies := loadTrustedProxies()
+
 	return AppConfig{
 		Environment: env,
 		Server: ServerConfig{
-			Port: getEnv("PORT", "8080"),
+			Port:           getEnv("PORT", "8080"),
+			TrustedProxies: trustedProxies,
 		},
 		CORS: CorsConfig{
 			AllowedOrigins: getCORSOrigins(isProd),
@@ -81,8 +85,8 @@ func LoadConfig() AppConfig {
 			AllowedHeaders: []string{"Origin", "Content-Type", "Authorization"},
 		},
 		OpenSky: OpenSkyConfig{
-			ClientID:     getEnv("OPEN_SKY_CLIENT_ID", ""),
-			ClientSecret: getEnv("OPEN_SKY_CLIENT_SECRET", ""),
+			ClientID:     clientID,
+			ClientSecret: clientSecret,
 		},
 		Database: DatabaseConfig{
 			URL: dbURL,
@@ -96,7 +100,26 @@ func LoadConfig() AppConfig {
 	}
 }
 
-// Helpers
+func loadTrustedProxies() []string {
+	raw := os.Getenv("TRUSTED_PROXIES")
+	if raw == "" {
+		log.Println("TRUSTED_PROXIES not set — X-Forwarded-For will be ignored (RemoteAddr only)")
+		return nil
+	}
+
+	parts := strings.Split(raw, ",")
+	out := make([]string, 0, len(parts))
+	for _, p := range parts {
+		p = strings.TrimSpace(p)
+		if p == "" {
+			continue
+		}
+		out = append(out, p)
+	}
+
+	log.Printf("TRUSTED_PROXIES: %v — X-Forwarded-For accepted only from these CIDRs", out)
+	return out
+}
 
 func getEnv(key, defaultVal string) string {
 	if value := os.Getenv(key); value != "" {

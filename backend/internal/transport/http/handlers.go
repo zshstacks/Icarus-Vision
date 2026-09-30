@@ -1,7 +1,6 @@
 package http
 
 import (
-	"icarus-vision/internal/domain"
 	"icarus-vision/internal/store"
 	"net/http"
 	"strconv"
@@ -10,7 +9,7 @@ import (
 )
 
 const (
-	defaultTrailMinutes = 15
+	defaultTrailMinutes = 60
 	maxTrailMinutes     = 1440 //24h, matches retention
 )
 
@@ -103,5 +102,3 @@ func (h *TracksHandler) GetHistory(c *echo.Context) error {
 		Features: []trailFeature{feature},
 	})
 }
-
-var _ = domain.Position{}

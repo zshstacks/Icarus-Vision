@@ -93,9 +93,9 @@ func main() {
 		MaxAge:           int((24 * time.Hour) / time.Millisecond),
 	}))
 
-	http2.RegisterRoutes(e, handler, tracksHandler, authHandler, cfg.JWT.Secret)
+	http2.RegisterRoutes(e, handler, tracksHandler, authHandler, cfg)
 
-	port := fmt.Sprintf(":%s", cfg.Server.Port)
+	port := fmt.Sprintf("127.0.0.1:%s", cfg.Server.Port)
 
 	sc := echo.StartConfig{
 		Address:         port,

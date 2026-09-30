@@ -17,6 +17,6 @@ type Track struct {
 type Position struct {
 	Lat       float64  `json:"lat"`
 	Lon       float64  `json:"lon"`
-	Altitude  *float64 `json:"altitude,omitempty"`
+	Altitude  *float64 `json:"altitude"`
 	Timestamp int64    `json:"timestamp"`
 }
