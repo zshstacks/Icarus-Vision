@@ -185,7 +185,6 @@ export default function MapView({ map, onMapReady }: MapViewProps) {
         />
       )}
 
-      {/* Trail goes under the aircraft icons. Mount order = layer order. */}
       <TrailLayer map={map} />
       <TrackLayer map={map} />
     </div>

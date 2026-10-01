@@ -2,6 +2,12 @@ import { useEffect, useState } from "react";
 import { useSelector } from "react-redux";
 import type { RootState } from "../../../redux/store";
 
+// Backend sends altitude in meters, speed and vertical rate in m/s.
+
+const M_TO_FT = 3.28084;
+const MPS_TO_KT = 1.94384;
+const MPS_TO_FPM = 196.8504;
+
 function formatLastUpdate(timestampSeconds: number): string {
   const nowInSeconds = Math.floor(Date.now() / 1000);
   const elapsedSeconds = Math.max(0, nowInSeconds - timestampSeconds);
@@ -32,20 +38,21 @@ function formatNumber(value: number | null | undefined, decimals = 0): string {
   });
 }
 
-function getVerticalRate(rate: number | null | undefined) {
-  if (rate == null) {
+function getVerticalRate(rateMps: number | null | undefined) {
+  if (rateMps == null) {
     return { value: "N/A", className: "text-[#8B949E]", arrow: "" };
   }
-  if (rate > 0) {
+  const fpm = rateMps * MPS_TO_FPM;
+  if (fpm > 0) {
     return {
-      value: `+${formatNumber(rate)} fpm`,
+      value: `+${formatNumber(fpm)} fpm`,
       className: "text-[#3FB950]",
       arrow: "↑",
     };
   }
-  if (rate < 0) {
+  if (fpm < 0) {
     return {
-      value: `${formatNumber(rate)} fpm`,
+      value: `${formatNumber(fpm)} fpm`,
       className: "text-[#F85149]",
       arrow: "↓",
     };
@@ -176,11 +183,16 @@ export default function TelemetryPanel() {
     );
   }
 
-  void tick; // keep last update fresh
+  void tick;
 
   const verticalRate = getVerticalRate(selectedTrack.vertical_rate);
   const lastUpdate = formatLastUpdate(selectedTrack.timestamp);
   const isRecent = Math.floor(Date.now() / 1000) - selectedTrack.timestamp < 60;
+
+  const altitudeFt =
+    selectedTrack.altitude == null ? null : selectedTrack.altitude * M_TO_FT;
+  const speedKt =
+    selectedTrack.speed == null ? null : selectedTrack.speed * MPS_TO_KT;
 
   return (
     <div>
@@ -218,7 +230,7 @@ export default function TelemetryPanel() {
           <div>
             <div className="mb-1 text-[11px] text-[#6E7681]">Altitude</div>
             <div className="font-mono text-[28px] font-medium leading-none tracking-tight tabular-nums">
-              {formatNumber(selectedTrack.altitude)}
+              {formatNumber(altitudeFt)}
               <span className="ml-1.5 text-[13px] font-normal text-[#8B949E]">
                 ft
               </span>
@@ -227,7 +239,7 @@ export default function TelemetryPanel() {
           <div>
             <div className="mb-1 text-[11px] text-[#6E7681]">Ground speed</div>
             <div className="font-mono text-[28px] font-medium leading-none tracking-tight tabular-nums">
-              {formatNumber(selectedTrack.speed)}
+              {formatNumber(speedKt)}
               <span className="ml-1.5 text-[13px] font-normal text-[#8B949E]">
                 kt
               </span>
