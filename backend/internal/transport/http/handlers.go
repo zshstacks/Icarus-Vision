@@ -42,10 +42,16 @@ type trailGeometry struct {
 }
 
 type trailProperties struct {
-	ID         string `json:"id"`
-	PointCount int    `json:"point_count"`
-	From       int64  `json:"from"`
-	To         int64  `json:"to"`
+	ID         string           `json:"id"`
+	PointCount int              `json:"point_count"`
+	From       int64            `json:"from"`
+	To         int64            `json:"to"`
+	Telemetry  []TelemetryPoint `json:"telemetry"`
+}
+
+type TelemetryPoint struct {
+	Timestamp int64    `json:"t"`
+	Altitude  *float64 `json:"alt"`
 }
 
 type trailCollection struct {
@@ -84,6 +90,14 @@ func (h *TracksHandler) GetHistory(c *echo.Context) error {
 		coords[i] = [2]float64{p.Lon, p.Lat}
 	}
 
+	telemetry := make([]TelemetryPoint, 0, len(positions))
+	for _, p := range positions {
+		telemetry = append(telemetry, TelemetryPoint{
+			Timestamp: p.Timestamp,
+			Altitude:  p.Altitude,
+		})
+	}
+
 	feature := trailFeature{
 		Type: "Feature",
 		Geometry: trailGeometry{
@@ -95,6 +109,7 @@ func (h *TracksHandler) GetHistory(c *echo.Context) error {
 			PointCount: len(positions),
 			From:       positions[0].Timestamp,
 			To:         positions[len(positions)-1].Timestamp,
+			Telemetry:  telemetry,
 		},
 	}
 	return c.JSON(http.StatusOK, trailCollection{
