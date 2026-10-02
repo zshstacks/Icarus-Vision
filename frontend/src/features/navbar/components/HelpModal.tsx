@@ -8,6 +8,7 @@ import {
   Radar,
   ArrowDown,
   LayoutGrid,
+  Radio,
 } from "lucide-react";
 
 interface HelpModalProps {
@@ -16,7 +17,9 @@ interface HelpModalProps {
 }
 
 const SHORTCUTS: { keys: string[]; label: string }[] = [
+  { keys: ["⌘", "/"], label: "Open this dialog" },
   { keys: ["Esc"], label: "Close panels & dialogs" },
+  { keys: ["Enter"], label: "Jump to first search result" },
   { keys: ["Shift", "Drag"], label: "Box zoom on map" },
 ];
 
@@ -47,7 +50,7 @@ const PIPELINE: { title: string; detail: string }[] = [
   },
   {
     title: "Ingest worker",
-    detail: "Normalizes rows → domain.Track, rejects invalid fixes",
+    detail: "Normalizes rows -> domain.Track, rejects invalid fixes",
   },
   { title: "Broadcaster", detail: "Fan-out to WebSocket hub + Postgres" },
   {
@@ -65,6 +68,12 @@ const STACK = [
   "Redux",
   "MapLibre GL",
   "Tailwind CSS",
+];
+
+const DATA_SOURCES: { name: string; use: string }[] = [
+  { name: "OpenSky Network", use: "Live ADS-B state vectors" },
+  { name: "ADSBDB", use: "Flight route lookup by callsign" },
+  { name: "Kiwi.com", use: "Airline logo CDN" },
 ];
 
 export default function HelpModal({ open, onClose }: HelpModalProps) {
@@ -143,12 +152,13 @@ export default function HelpModal({ open, onClose }: HelpModalProps) {
               </span>
             </div>
             <p className="mt-3 text-[12.5px] leading-relaxed text-[#C9D1D9]">
-              A real-time map of aircraft tracked worldwide, built from live
-              ADS-B state vectors published by the OpenSky Network. Click any
-              aircraft to inspect its telemetry - callsign, altitude, speed,
-              heading and vertical rate. Positions refresh roughly every two
-              minutes, trading real-time smoothness for a global, predictable
-              feed.
+              A real-time map of aircraft tracked worldwide. Every aircraft
+              streams its telemetry - callsign, altitude, speed, heading,
+              vertical rate - and the inspector resolves the live route (origin
+              -- destination) and airline identity where available, alongside a
+              historical altitude profile. Positions refresh every two minutes
+              from the OpenSky Network, trading real-time smoothness for a
+              global, predictable feed.
             </p>
           </section>
 
@@ -208,6 +218,30 @@ export default function HelpModal({ open, onClose }: HelpModalProps) {
                 </span>
               ))}
             </div>
+          </section>
+
+          <div className="h-px bg-[#21262D]" />
+
+          {/* data sources */}
+          <section>
+            <div className="flex items-center gap-1.5">
+              <Radio size={13} strokeWidth={1.75} className="text-[#6E7681]" />
+              <span className="text-[11px] font-medium uppercase tracking-wider text-[#6E7681]">
+                Data sources
+              </span>
+            </div>
+
+            <ul className="mt-3 flex flex-col gap-1.5">
+              {DATA_SOURCES.map(({ name, use }) => (
+                <li
+                  key={name}
+                  className="flex items-baseline gap-2 text-[12px]"
+                >
+                  <span className="font-medium text-[#E6EDF3]">{name}</span>
+                  <span className="text-[#6E7681]">- {use}</span>
+                </li>
+              ))}
+            </ul>
           </section>
 
           <div className="h-px bg-[#21262D]" />
