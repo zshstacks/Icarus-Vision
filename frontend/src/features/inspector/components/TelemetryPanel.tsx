@@ -10,6 +10,7 @@ import {
 } from "../../../redux/selectSlice/selectSlice";
 import api from "../../../redux/api";
 import MiniAltitudeChart from "./MiniAltitudeChart";
+import AirlineLogo from "./AirlineLogo";
 
 const M_TO_FT = 3.28084;
 const MPS_TO_KT = 1.94384;
@@ -331,8 +332,11 @@ export default function TelemetryPanel() {
             <div className="mb-0.5 text-[10px] uppercase tracking-wider text-[#6E7681]">
               Aircraft
             </div>
-            <div className="truncate font-mono text-xl font-medium tracking-tight text-[#E6EDF3]">
-              {selectedTrack.callsign || "N/A"}
+            <div className="flex items-center gap-2">
+              <AirlineLogo callsign={selectedTrack.callsign} size={26} />
+              <div className="truncate font-mono text-xl font-medium tracking-tight text-[#E6EDF3]">
+                {selectedTrack.callsign || "N/A"}
+              </div>
             </div>
           </div>
           <div className="flex flex-col items-end gap-1.5 pt-1">
