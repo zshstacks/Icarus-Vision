@@ -8,7 +8,7 @@ const api = axios.create({
 //only one refresh call is in the air at a time
 let refreshInFlight: Promise<void> | null = null;
 
-function refreshOnce(): Promise<void> {
+export function refreshOnce(): Promise<void> {
   if (!refreshInFlight) {
     refreshInFlight = api
       .post("/auth/refresh")
