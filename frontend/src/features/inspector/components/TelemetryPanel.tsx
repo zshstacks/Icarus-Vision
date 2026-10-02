@@ -8,10 +8,17 @@ import {
   TRAIL_MINUTES_OPTIONS,
   type TrailMinutes,
 } from "../../../redux/selectSlice/selectSlice";
+import api from "../../../redux/api";
+import MiniAltitudeChart from "./MiniAltitudeChart";
 
 const M_TO_FT = 3.28084;
 const MPS_TO_KT = 1.94384;
 const MPS_TO_FPM = 196.8504;
+
+interface TelemetryPoint {
+  t: number;
+  alt: number | null;
+}
 
 function formatLastUpdate(timestampSeconds: number): string {
   const nowInSeconds = Math.floor(Date.now() / 1000);
@@ -244,12 +251,51 @@ export default function TelemetryPanel() {
   const trailMinutes = useSelector((s: RootState) => s.selection.trailMinutes);
 
   const [tick, setTick] = useState(0);
+  const [telemetryData, setTelemetryData] = useState<TelemetryPoint[]>([]);
 
+  // Re-render every second to keep "last update" fresh
   useEffect(() => {
     if (!selectedTrack) return;
     const id = setInterval(() => setTick((t) => t + 1), 1000);
     return () => clearInterval(id);
   }, [selectedTrack]);
+
+  // Fetch historical altitude data for the chart
+  useEffect(() => {
+    if (!selectedTrack) {
+      setTelemetryData([]);
+      return;
+    }
+
+    let cancelled = false;
+    const selectedId = selectedTrack.id;
+
+    const fetchChartData = () => {
+      api
+        .get(
+          `/api/tracks/${encodeURIComponent(selectedId)}/history?minutes=${trailMinutes}`,
+        )
+        .then((res) => {
+          if (cancelled) return;
+          const points: TelemetryPoint[] | undefined =
+            res.data?.features?.[0]?.properties?.telemetry;
+          setTelemetryData(points ?? []);
+        })
+        .catch((err) => {
+          if (!cancelled) {
+            console.warn("[TelemetryPanel] chart fetch failed:", err);
+          }
+        });
+    };
+
+    fetchChartData();
+    const interval = setInterval(fetchChartData, 30_000);
+
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [selectedTrack?.id, trailMinutes]);
 
   if (!selectedTrack) {
     return (
@@ -376,6 +422,21 @@ export default function TelemetryPanel() {
             </div>
           </div>
         </div>
+      </div>
+
+      <div className="border-b border-[#21262D]" />
+
+      {/* Altitude chart */}
+      <div className="px-4 py-4">
+        <div className="mb-2 flex items-center justify-between">
+          <span className="text-[10px] uppercase tracking-wider text-[#6E7681]">
+            Altitude Profile
+          </span>
+          <span className="font-mono text-[10px] tabular-nums text-[#6E7681]">
+            {formatTrailOption(trailMinutes)}
+          </span>
+        </div>
+        <MiniAltitudeChart data={telemetryData} />
       </div>
 
       <div className="border-b border-[#21262D]" />
