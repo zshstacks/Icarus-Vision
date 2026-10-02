@@ -3,6 +3,7 @@ import { Map, type ExpressionSpecification } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import TrackLayer from "./TrackLayer";
 import TrailLayer from "./TrailLayer";
+import FollowCamera from "./FollowCamera";
 
 const PALETTE = {
   //Core surfaces
@@ -187,6 +188,7 @@ export default function MapView({ map, onMapReady }: MapViewProps) {
 
       <TrailLayer map={map} />
       <TrackLayer map={map} />
+      <FollowCamera map={map} />
     </div>
   );
 }

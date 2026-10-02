@@ -21,8 +21,8 @@ interface Props {
 
 export default function TrailLayer({ map }: Props) {
   const selectedId = useSelector((s: RootState) => s.selection.id);
+  const trailMinutes = useSelector((s: RootState) => s.selection.trailMinutes);
 
-  // Live position of the selected track, changes every ws tick
   const livePos = useSelector((s: RootState) => {
     if (!s.selection.id) return null;
     const t = s.tracks.tracks[s.selection.id];
@@ -42,7 +42,7 @@ export default function TrailLayer({ map }: Props) {
     const fetchTrail = () => {
       api
         .get<FeatureCollection>(
-          `/api/tracks/${encodeURIComponent(selectedId)}/history`,
+          `/api/tracks/${encodeURIComponent(selectedId)}/history?minutes=${trailMinutes}`,
         )
         .then((res) => {
           if (!cancelled) setRawTrail(res.data);
@@ -59,7 +59,7 @@ export default function TrailLayer({ map }: Props) {
       cancelled = true;
       clearInterval(intervalId);
     };
-  }, [selectedId]);
+  }, [selectedId, trailMinutes]);
 
   const merged = useMemo<FeatureCollection>(() => {
     if (!livePos) return EMPTY;

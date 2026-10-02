@@ -1,8 +1,12 @@
 import { useEffect, useState } from "react";
-import { useSelector } from "react-redux";
-import type { RootState } from "../../../redux/store";
-
-// Backend sends altitude in meters, speed and vertical rate in m/s.
+import { useDispatch, useSelector } from "react-redux";
+import type { AppDispatch, RootState } from "../../../redux/store";
+import {
+  followToggled,
+  trailMinutesSet,
+  TRAIL_MINUTES_OPTIONS,
+  type TrailMinutes,
+} from "../../../redux/selectSlice/selectSlice";
 
 const M_TO_FT = 3.28084;
 const MPS_TO_KT = 1.94384;
@@ -36,6 +40,11 @@ function formatNumber(value: number | null | undefined, decimals = 0): string {
     minimumFractionDigits: decimals,
     maximumFractionDigits: decimals,
   });
+}
+
+function formatTrailOption(minutes: TrailMinutes): string {
+  if (minutes < 60) return `${minutes}m`;
+  return `${minutes / 60}h`;
 }
 
 function getVerticalRate(rateMps: number | null | undefined) {
@@ -157,10 +166,14 @@ function HeadingIndicator({ heading }: { heading: number | null | undefined }) {
 }
 
 export default function TelemetryPanel() {
+  const dispatch: AppDispatch = useDispatch();
+
   const selectedTrack = useSelector((state: RootState) => {
     const id = state.selection.id;
     return id ? state.tracks.tracks[id] : null;
   });
+  const following = useSelector((s: RootState) => s.selection.following);
+  const trailMinutes = useSelector((s: RootState) => s.selection.trailMinutes);
 
   const [tick, setTick] = useState(0);
 
@@ -199,9 +212,9 @@ export default function TelemetryPanel() {
       {/* identity */}
       <div className="px-4 py-3.5">
         <div className="flex items-start justify-between gap-3">
-          <div>
+          <div className="min-w-0 flex-1">
             <div className="mb-0.5 text-[11px] text-[#6E7681]">Aircraft</div>
-            <div className="font-mono text-lg font-medium tracking-tight">
+            <div className="truncate font-mono text-lg font-medium tracking-tight">
               {selectedTrack.callsign ?? "N/A"}
             </div>
           </div>
@@ -219,6 +232,25 @@ export default function TelemetryPanel() {
               {isRecent ? "Live" : "Stale"}
             </span>
           </div>
+        </div>
+
+        {/* follow toggle */}
+        <div className="mt-2 flex items-center justify-end">
+          <button
+            onClick={() => dispatch(followToggled())}
+            className={`cursor-pointer rounded-md border px-2 py-0.5 text-[10px] uppercase tracking-wider transition-colors ${
+              following
+                ? "border-[#58A6FF]/40 bg-[#58A6FF]/10 text-[#58A6FF]"
+                : "border-[#21262D] text-[#6E7681] hover:border-[#30363D] hover:text-[#8B949E]"
+            }`}
+            title={
+              following
+                ? "Stop following this aircraft"
+                : "Keep the map centered on this aircraft"
+            }
+          >
+            {following ? "Following" : "Follow"}
+          </button>
         </div>
       </div>
 
@@ -280,7 +312,7 @@ export default function TelemetryPanel() {
 
       <div className="h-px bg-[#21262D]" />
 
-      {/* position */}
+      {/* position + trail */}
       <div className="px-4 py-4">
         <div className="mb-3 text-[11px] text-[#6E7681]">Position</div>
         <div className="space-y-2.5">
@@ -295,6 +327,28 @@ export default function TelemetryPanel() {
             <span className="font-mono text-[12px] tabular-nums">
               {formatCoordinate(selectedTrack.lon, "E", "W")}
             </span>
+          </div>
+        </div>
+
+        {/* trail length selector */}
+        <div className="mt-4 flex items-center gap-2">
+          <span className="text-[10px] uppercase tracking-wider text-[#6E7681]">
+            Trail
+          </span>
+          <div className="ml-auto flex items-center gap-1">
+            {TRAIL_MINUTES_OPTIONS.map((m) => (
+              <button
+                key={m}
+                onClick={() => dispatch(trailMinutesSet(m))}
+                className={`cursor-pointer rounded px-2 py-0.5 font-mono text-[10px] tabular-nums transition-colors ${
+                  trailMinutes === m
+                    ? "bg-[#21262D] text-[#E6EDF3]"
+                    : "text-[#6E7681] hover:text-[#8B949E]"
+                }`}
+              >
+                {formatTrailOption(m)}
+              </button>
+            ))}
           </div>
         </div>
       </div>
