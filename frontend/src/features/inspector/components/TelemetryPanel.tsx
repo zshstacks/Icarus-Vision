@@ -11,6 +11,7 @@ import {
 import api from "../../../redux/api";
 import MiniAltitudeChart from "./MiniAltitudeChart";
 import AirlineLogo from "./AirlineLogo";
+import RouteInfo from "./RouteInfo";
 
 const M_TO_FT = 3.28084;
 const MPS_TO_KT = 1.94384;
@@ -374,6 +375,14 @@ export default function TelemetryPanel() {
       </div>
 
       <div className="border-b border-[#21262D]" />
+
+      {/* Route */}
+      <div className="px-4 py-4">
+        <div className="mb-3 text-[10px] uppercase tracking-wider text-[#6E7681]">
+          Route
+        </div>
+        <RouteInfo callsign={selectedTrack.callsign} />
+      </div>
 
       {/* Primary numbers */}
       <div className="px-4 py-4">
