@@ -55,19 +55,19 @@ function getVerticalRate(rateMps: number | null | undefined) {
   const fpm = rateMps * MPS_TO_FPM;
   if (fpm > 0) {
     return {
-      value: `+${formatNumber(fpm)} fpm`,
+      value: `+${formatNumber(fpm)}`,
       className: "text-[#3FB950]",
       arrow: "↑",
     };
   }
   if (fpm < 0) {
     return {
-      value: `${formatNumber(fpm)} fpm`,
+      value: `${formatNumber(fpm)}`,
       className: "text-[#F85149]",
       arrow: "↓",
     };
   }
-  return { value: "0 fpm", className: "text-[#8B949E]", arrow: "" };
+  return { value: "0", className: "text-[#8B949E]", arrow: "" };
 }
 
 function HeadingIndicator({ heading }: { heading: number | null | undefined }) {
@@ -83,7 +83,7 @@ function HeadingIndicator({ heading }: { heading: number | null | undefined }) {
   const ticks = Array.from({ length: 12 }, (_, i) => i * 30);
 
   return (
-    <div className="relative mx-auto mt-3 flex h-28 w-28 items-center justify-center">
+    <div className="relative mx-auto flex h-32 w-32 items-center justify-center">
       <svg
         viewBox="0 0 120 120"
         className="absolute inset-0 h-full w-full"
@@ -159,7 +159,7 @@ function HeadingIndicator({ heading }: { heading: number | null | undefined }) {
         </g>
       </svg>
 
-      <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 font-mono text-[12px] tabular-nums text-[#E6EDF3]">
+      <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 font-mono text-[11px] tabular-nums text-[#8B949E]">
         {normalized.toFixed(0).padStart(3, "0")}°
       </div>
     </div>
@@ -189,7 +189,7 @@ function CopyCoordinatesButton({ lat, lon }: { lat: number; lon: number }) {
   return (
     <button
       onClick={handleCopy}
-      className={`cursor-pointer rounded px-1.5 py-0.5 text-[10px] transition-colors ${
+      className={`cursor-pointer px-1.5 py-0.5 text-[10px] uppercase tracking-wider transition-colors ${
         copied ? "text-[#3FB950]" : "text-[#6E7681] hover:text-[#8B949E]"
       }`}
       title="Copy coordinates"
@@ -221,7 +221,7 @@ function RecentSelections() {
             <button
               key={id}
               onClick={() => dispatch(trackSelected(id))}
-              className="cursor-pointer rounded-md border border-[#21262D] px-2 py-1 font-mono text-[11px] text-[#8B949E] transition-colors hover:border-[#30363D] hover:text-[#E6EDF3]"
+              className="cursor-pointer rounded-sm border border-[#21262D] px-2 py-1 font-mono text-[11px] text-[#8B949E] transition-colors hover:border-[#30363D] hover:text-[#E6EDF3]"
             >
               {label}
             </button>
@@ -232,8 +232,7 @@ function RecentSelections() {
   );
 }
 
-// --- Panel ---
-
+// Panel
 export default function TelemetryPanel() {
   const dispatch: AppDispatch = useDispatch();
 
@@ -279,92 +278,99 @@ export default function TelemetryPanel() {
 
   return (
     <div>
-      {/* identity */}
-      <div className="px-4 py-3.5">
+      {/* Identity */}
+      <div className="px-4 py-4">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0 flex-1">
-            <div className="mb-0.5 text-[11px] text-[#6E7681]">Aircraft</div>
-            <div className="truncate font-mono text-lg font-medium tracking-tight">
-              {selectedTrack.callsign ?? "N/A"}
+            <div className="mb-0.5 text-[10px] uppercase tracking-wider text-[#6E7681]">
+              Aircraft
+            </div>
+            <div className="truncate font-mono text-xl font-medium tracking-tight text-[#E6EDF3]">
+              {selectedTrack.callsign || "N/A"}
             </div>
           </div>
-          <div className="flex items-center gap-1.5 pt-1">
-            <span
-              className={`h-1.5 w-1.5 rounded-full ${
-                isRecent ? "bg-[#58A6FF]" : "bg-[#6E7681]"
+          <div className="flex flex-col items-end gap-1.5 pt-1">
+            <div className="flex items-center gap-1.5">
+              <span
+                className={`h-1.5 w-1.5 rounded-full ${
+                  isRecent ? "bg-[#58A6FF]" : "bg-[#6E7681]"
+                }`}
+              />
+              <span
+                className={`text-[10px] uppercase tracking-wider ${
+                  isRecent ? "text-[#58A6FF]" : "text-[#6E7681]"
+                }`}
+              >
+                {isRecent ? "Live" : "Stale"}
+              </span>
+            </div>
+            <button
+              onClick={() => dispatch(followToggled())}
+              className={`cursor-pointer rounded-sm border px-2 py-0.5 text-[10px] uppercase tracking-wider transition-colors ${
+                following
+                  ? "border-[#58A6FF] bg-[#58A6FF] text-[#0D1117]"
+                  : "border-[#30363D] text-[#8B949E] hover:border-[#8B949E] hover:text-[#E6EDF3]"
               }`}
-            />
-            <span
-              className={`text-[11px] ${
-                isRecent ? "text-[#58A6FF]" : "text-[#6E7681]"
-              }`}
+              title={
+                following
+                  ? "Stop following this aircraft"
+                  : "Keep the map centered on this aircraft"
+              }
             >
-              {isRecent ? "Live" : "Stale"}
-            </span>
+              {following ? "Following" : "Follow"}
+            </button>
           </div>
-        </div>
-
-        {/* follow toggle */}
-        <div className="mt-2 flex items-center justify-end">
-          <button
-            onClick={() => dispatch(followToggled())}
-            className={`cursor-pointer rounded-md border px-2 py-0.5 text-[10px] uppercase tracking-wider transition-colors ${
-              following
-                ? "border-[#58A6FF]/40 bg-[#58A6FF]/10 text-[#58A6FF]"
-                : "border-[#21262D] text-[#6E7681] hover:border-[#30363D] hover:text-[#8B949E]"
-            }`}
-            title={
-              following
-                ? "Stop following this aircraft"
-                : "Keep the map centered on this aircraft"
-            }
-          >
-            {following ? "Following" : "Follow"}
-          </button>
         </div>
       </div>
 
-      <div className="h-px bg-[#21262D]" />
+      <div className="border-b border-[#21262D]" />
 
-      {/* primary numbers */}
+      {/* Primary numbers */}
       <div className="px-4 py-4">
-        <div className="grid grid-cols-2 gap-x-6">
+        <div className="grid grid-cols-2 gap-x-4">
           <div>
-            <div className="mb-1 text-[11px] text-[#6E7681]">Altitude</div>
-            <div className="font-mono text-[28px] font-medium leading-none tracking-tight tabular-nums">
+            <div className="mb-0.5 text-[10px] uppercase tracking-wider text-[#6E7681]">
+              Altitude
+            </div>
+            <div className="font-mono text-2xl font-medium leading-none tracking-tight text-[#E6EDF3] tabular-nums">
               {formatNumber(altitudeFt)}
-              <span className="ml-1.5 text-[13px] font-normal text-[#8B949E]">
+              <span className="ml-1 text-[12px] font-normal text-[#8B949E]">
                 ft
               </span>
             </div>
           </div>
           <div>
-            <div className="mb-1 text-[11px] text-[#6E7681]">Ground speed</div>
-            <div className="font-mono text-[28px] font-medium leading-none tracking-tight tabular-nums">
+            <div className="mb-0.5 text-[10px] uppercase tracking-wider text-[#6E7681]">
+              Ground speed
+            </div>
+            <div className="font-mono text-2xl font-medium leading-none tracking-tight text-[#E6EDF3] tabular-nums">
               {formatNumber(speedKt)}
-              <span className="ml-1.5 text-[13px] font-normal text-[#8B949E]">
+              <span className="ml-1 text-[12px] font-normal text-[#8B949E]">
                 kt
               </span>
             </div>
           </div>
         </div>
 
-        <div className="mt-5 grid grid-cols-2 gap-x-6">
+        <div className="mt-5 grid grid-cols-2 gap-x-4">
           <div>
-            <div className="mb-0.5 text-[11px] text-[#6E7681]">
+            <div className="mb-0.5 text-[10px] uppercase tracking-wider text-[#6E7681]">
               Vertical rate
             </div>
             <div
-              className={`flex items-center gap-1 font-mono text-[13px] tabular-nums ${verticalRate.className}`}
+              className={`flex items-baseline gap-1 font-mono text-[13px] tabular-nums ${verticalRate.className}`}
             >
               {verticalRate.arrow && (
                 <span className="text-[11px]">{verticalRate.arrow}</span>
               )}
               <span>{verticalRate.value}</span>
+              <span className="text-[10px] text-[#8B949E]">fpm</span>
             </div>
           </div>
           <div>
-            <div className="mb-0.5 text-[11px] text-[#6E7681]">Last update</div>
+            <div className="mb-0.5 text-[10px] uppercase tracking-wider text-[#6E7681]">
+              Last update
+            </div>
             <div className="font-mono text-[13px] tabular-nums text-[#8B949E]">
               {lastUpdate}
             </div>
@@ -372,51 +378,56 @@ export default function TelemetryPanel() {
         </div>
       </div>
 
-      <div className="h-px bg-[#21262D]" />
+      <div className="border-b border-[#21262D]" />
 
-      {/* heading */}
+      {/* Heading */}
       <div className="px-4 py-4">
-        <div className="mb-1 text-[11px] text-[#6E7681]">Heading</div>
+        <div className="mb-2 text-[10px] uppercase tracking-wider text-[#6E7681]">
+          Heading
+        </div>
         <HeadingIndicator heading={selectedTrack.heading} />
       </div>
 
-      <div className="h-px bg-[#21262D]" />
+      <div className="border-b border-[#21262D]" />
 
-      {/* position + trail */}
+      {/* Position + Trail */}
       <div className="px-4 py-4">
         <div className="mb-3 flex items-center justify-between">
-          <span className="text-[11px] text-[#6E7681]">Position</span>
+          <span className="text-[10px] uppercase tracking-wider text-[#6E7681]">
+            Position
+          </span>
           <CopyCoordinatesButton
             lat={selectedTrack.lat}
             lon={selectedTrack.lon}
           />
         </div>
-        <div className="space-y-2.5">
+
+        <div className="space-y-2">
           <div className="flex items-center justify-between gap-4">
             <span className="text-[12px] text-[#6E7681]">Latitude</span>
-            <span className="font-mono text-[12px] tabular-nums">
+            <span className="font-mono text-[12px] tabular-nums text-[#E6EDF3]">
               {formatCoordinate(selectedTrack.lat, "N", "S")}
             </span>
           </div>
           <div className="flex items-center justify-between gap-4">
             <span className="text-[12px] text-[#6E7681]">Longitude</span>
-            <span className="font-mono text-[12px] tabular-nums">
+            <span className="font-mono text-[12px] tabular-nums text-[#E6EDF3]">
               {formatCoordinate(selectedTrack.lon, "E", "W")}
             </span>
           </div>
         </div>
 
-        {/* trail length selector */}
-        <div className="mt-4 flex items-center gap-2">
+        {/* Trail length selector */}
+        <div className="mt-5 flex items-center justify-between border-t border-[#21262D] pt-4">
           <span className="text-[10px] uppercase tracking-wider text-[#6E7681]">
             Trail
           </span>
-          <div className="ml-auto flex items-center gap-1">
+          <div className="flex items-center gap-1">
             {TRAIL_MINUTES_OPTIONS.map((m) => (
               <button
                 key={m}
                 onClick={() => dispatch(trailMinutesSet(m))}
-                className={`cursor-pointer rounded px-2 py-0.5 font-mono text-[10px] tabular-nums transition-colors ${
+                className={`cursor-pointer rounded-sm px-2 py-0.5 font-mono text-[10px] tabular-nums transition-colors ${
                   trailMinutes === m
                     ? "bg-[#21262D] text-[#E6EDF3]"
                     : "text-[#6E7681] hover:text-[#8B949E]"
