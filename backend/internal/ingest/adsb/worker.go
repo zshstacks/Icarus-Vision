@@ -2,9 +2,11 @@ package adsb
 
 import (
 	"context"
-	"icarus-vision/internal/domain"
-	"log"
+	"log/slog"
 	"time"
+
+	"icarus-vision/internal/domain"
+	"icarus-vision/internal/metrics"
 )
 
 type Worker struct {
@@ -13,16 +15,13 @@ type Worker struct {
 }
 
 func NewWorker(client *ClientManager) *Worker {
-	w := &Worker{
+	return &Worker{
 		client: client,
 		ids:    make(map[string]struct{}),
 	}
-	return w
 }
 
-func (w *Worker) Name() string {
-	return "adsb"
-}
+func (w *Worker) Name() string { return "adsb" }
 
 func (w *Worker) Start(ctx context.Context, out chan<- []domain.Track, outRemoved chan<- []string) error {
 	ticker := time.NewTicker(120 * time.Second)
@@ -33,9 +32,15 @@ func (w *Worker) Start(ctx context.Context, out chan<- []domain.Track, outRemove
 		case <-ctx.Done():
 			return ctx.Err()
 		case <-ticker.C:
+			metrics.AdsBPollsTotal.Inc()
+			start := time.Now()
+
 			states, err := w.client.FetchStates(ctx)
+			metrics.AdsBPollDuration.Observe(time.Since(start).Seconds())
+
 			if err != nil {
-				log.Printf("Worker Start(): fetch states -  %v", err)
+				metrics.AdsBPollErrors.Inc()
+				slog.Warn("adsb: fetch failed", "error", err)
 				continue
 			}
 
@@ -45,23 +50,21 @@ func (w *Worker) Start(ctx context.Context, out chan<- []domain.Track, outRemove
 
 			for _, row := range states.States {
 				track, err := rowToTrack(row)
-
 				if err != nil {
-					log.Printf("Worker Start(): rowToTrack -  %v", err)
 					rejected++
 					continue
 				}
 				tracks = append(tracks, track)
 			}
 
-			currentIDs := make(map[string]struct{})
+			currentIDs := make(map[string]struct{}, len(tracks))
 			for _, t := range tracks {
 				currentIDs[t.ID] = struct{}{}
 			}
 
 			var removedIDs []string
 			for id := range w.ids {
-				if _, ok := currentIDs[id]; !ok { //is id present in currentIDs, if not it means aircraft disappeared this tick
+				if _, ok := currentIDs[id]; !ok {
 					removedIDs = append(removedIDs, id)
 				}
 			}
@@ -70,7 +73,6 @@ func (w *Worker) Start(ctx context.Context, out chan<- []domain.Track, outRemove
 			if len(removedIDs) > 0 {
 				select {
 				case outRemoved <- removedIDs:
-					log.Printf("Worker: removedIDs=%v (count=%d)", removedIDs, len(removedIDs))
 				case <-ctx.Done():
 					return ctx.Err()
 				}
@@ -84,15 +86,20 @@ func (w *Worker) Start(ctx context.Context, out chan<- []domain.Track, outRemove
 				}
 			}
 
-			//total vs rejected per tick(perc%)
+			metrics.TracksIngested.WithLabelValues("adsb").Add(float64(len(tracks)))
+
 			accepted := total - rejected
 			pct := 0.0
 			if total > 0 {
 				pct = float64(rejected) / float64(total) * 100
 			}
-			log.Printf("Worker Start(): tick stats - total: %d, accepted: %d, rejected: %d (%.1f%% rejected)",
-				total, accepted, rejected, pct)
-
+			slog.Info("adsb: tick",
+				"total", total,
+				"accepted", accepted,
+				"rejected", rejected,
+				"rejected_pct", pct,
+				"removed", len(removedIDs),
+			)
 		}
 	}
 }

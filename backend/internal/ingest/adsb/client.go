@@ -117,7 +117,11 @@ func (c *ClientManager) FetchStates(ctx context.Context) (*StatesResponse, error
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("FetchStates: opensky token request failed: %s", resp.Status)
+		if resp.StatusCode == http.StatusTooManyRequests {
+			retry := resp.Header.Get("X-Rate-Limit-Retry-After-Seconds")
+			return nil, fmt.Errorf("FetchStates: rate limited, retry after %ss", retry)
+		}
+		return nil, fmt.Errorf("FetchStates: opensky returned %s", resp.Status)
 	}
 
 	if err := json.NewDecoder(resp.Body).Decode(&statesResponse); err != nil {

@@ -3,8 +3,13 @@ package ws
 import (
 	"context"
 	"encoding/json"
+	"log/slog"
+
 	"icarus-vision/internal/domain"
+	"icarus-vision/internal/metrics"
 )
+
+const broadcastBuffer = 64
 
 type Hub struct {
 	clients    map[*Client]struct{}
@@ -14,32 +19,35 @@ type Hub struct {
 }
 
 func NewHub() *Hub {
-	hub := Hub{
+	return &Hub{
 		clients:    make(map[*Client]struct{}),
-		Broadcast:  make(chan *domain.Event),
+		Broadcast:  make(chan *domain.Event, broadcastBuffer),
 		register:   make(chan *Client),
 		unregister: make(chan *Client),
 	}
-
-	return &hub
 }
 
 func (h *Hub) Run(ctx context.Context) {
-
 	for {
 		select {
 		case <-ctx.Done():
 			return
+
 		case client := <-h.register:
 			h.clients[client] = struct{}{}
+			metrics.WSConnections.Inc()
+
 		case client := <-h.unregister:
 			if _, ok := h.clients[client]; ok {
 				close(client.send)
 				delete(h.clients, client)
+				metrics.WSConnections.Dec()
 			}
+
 		case event := <-h.Broadcast:
 			data, err := json.Marshal(event)
 			if err != nil {
+				slog.Error("hub: marshal failed", "error", err, "type", event.Type)
 				continue
 			}
 
@@ -47,13 +55,13 @@ func (h *Hub) Run(ctx context.Context) {
 				select {
 				case client.send <- data:
 				default:
-					if _, ok := h.clients[client]; ok {
-						close(client.send)
-						delete(h.clients, client)
-					}
+					close(client.send)
+					delete(h.clients, client)
+					metrics.WSConnections.Dec()
+					metrics.HubDropped.Inc()
+					slog.Warn("hub: evicted slow client")
 				}
 			}
 		}
 	}
-
 }

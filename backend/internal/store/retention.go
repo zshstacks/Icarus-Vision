@@ -3,7 +3,7 @@ package store
 import (
 	"context"
 	"fmt"
-	"log"
+	"log/slog"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -28,7 +28,7 @@ func RunRetentionLoop(ctx context.Context, pool *pgxpool.Pool, interval time.Dur
 
 	err := RunRetention(ctx, pool, retentionWindow)
 	if err != nil {
-		log.Printf("RunRetention on startup: %v", err)
+		slog.Warn("retention: startup prune failed", "error", err)
 	}
 
 	for {
@@ -38,7 +38,7 @@ func RunRetentionLoop(ctx context.Context, pool *pgxpool.Pool, interval time.Dur
 		case <-ticker.C:
 			err := RunRetention(ctx, pool, retentionWindow)
 			if err != nil {
-				log.Printf("RunRetentionLoop: %v", err)
+				slog.Warn("retention: prune failed", "error", err)
 			}
 		}
 	}

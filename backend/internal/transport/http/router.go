@@ -10,10 +10,13 @@ import (
 	"golang.org/x/time/rate"
 )
 
-func RegisterRoutes(e *echo.Echo, h *ws.Handler, tracksHandler *TracksHandler, authHandler *auth.AuthHandler, cfg config.AppConfig) {
+func RegisterRoutes(e *echo.Echo, h *ws.Handler, tracksHandler *TracksHandler, authHandler *auth.AuthHandler, healthHandler *HealthHandler, cfg config.AppConfig) {
 
 	//5 attempts, 1 refill per minute
 	loginLimit := newLoginLimiter(rate.Every(time.Minute), 5, cfg.Server.TrustedProxies).middleware()
+
+	e.GET("/healthz", healthHandler.Live)
+	e.GET("/readyz", healthHandler.Ready)
 
 	authGroup := e.Group("/auth")
 	authGroup.POST("/login", authHandler.Login, loginLimit)

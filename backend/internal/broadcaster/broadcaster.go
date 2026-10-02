@@ -2,10 +2,12 @@ package broadcaster
 
 import (
 	"context"
+	"log/slog"
+
 	"icarus-vision/internal/domain"
+	"icarus-vision/internal/metrics"
 	"icarus-vision/internal/store"
 	"icarus-vision/internal/transport/ws"
-	"log"
 )
 
 type Broadcaster struct {
@@ -16,16 +18,20 @@ type Broadcaster struct {
 	trackRepo     *store.TrackRepo
 }
 
-func NewBroadcaster(tracks <-chan []domain.Track, removedTracks <-chan []string, hub *ws.Hub, source string, trackRepo *store.TrackRepo) *Broadcaster {
-	b := &Broadcaster{
+func NewBroadcaster(
+	tracks <-chan []domain.Track,
+	removedTracks <-chan []string,
+	hub *ws.Hub,
+	source string,
+	trackRepo *store.TrackRepo,
+) *Broadcaster {
+	return &Broadcaster{
 		tracks:        tracks,
 		removedTracks: removedTracks,
 		hub:           hub,
 		source:        source,
 		trackRepo:     trackRepo,
 	}
-
-	return b
 }
 
 func (b *Broadcaster) Run(ctx context.Context) {
@@ -33,31 +39,28 @@ func (b *Broadcaster) Run(ctx context.Context) {
 		select {
 		case <-ctx.Done():
 			return
+
 		case tracks := <-b.tracks:
+			if len(tracks) == 0 {
+				continue
+			}
+
 			event := &domain.Event{
 				Type:   "track_update",
 				Source: b.source,
 				Data:   tracks,
 			}
+			b.publish(ctx, event)
+			b.persist(ctx, tracks)
 
-			b.hub.Broadcast <- event
-
-			for _, row := range tracks {
-				if err := b.trackRepo.UpsertLatest(ctx, row); err != nil {
-					log.Printf("UpsertLatest error: %v", err)
-				}
-
-				if err := b.trackRepo.InsertPosition(ctx, row); err != nil {
-					log.Printf("InsertPosition error: %v", err)
-				}
-			}
 		case removedTracks := <-b.removedTracks:
-			log.Printf("Broadcaster: received track_removed, ids=%v", removedTracks)
-			var removedAsTracks []domain.Track
+			if len(removedTracks) == 0 {
+				continue
+			}
+
+			removedAsTracks := make([]domain.Track, 0, len(removedTracks))
 			for _, id := range removedTracks {
-				removedAsTracks = append(removedAsTracks, domain.Track{
-					ID: id,
-				})
+				removedAsTracks = append(removedAsTracks, domain.Track{ID: id})
 			}
 
 			event := &domain.Event{
@@ -65,10 +68,52 @@ func (b *Broadcaster) Run(ctx context.Context) {
 				Source: b.source,
 				Data:   removedAsTracks,
 			}
-
-			b.hub.Broadcast <- event
+			b.publish(ctx, event)
 		}
+	}
+}
 
+func (b *Broadcaster) publish(ctx context.Context, event *domain.Event) {
+	select {
+	case b.hub.Broadcast <- event:
+	case <-ctx.Done():
+	default:
+		metrics.HubDropped.Inc()
+		slog.Warn("broadcaster: dropped event, hub channel full",
+			"source", b.source, "type", event.Type)
+	}
+}
+
+func (b *Broadcaster) persist(ctx context.Context, tracks []domain.Track) {
+	if len(tracks) == 0 {
+		return
 	}
 
+	// Single-row path for single-item batches.
+	if len(tracks) == 1 {
+		t := tracks[0]
+		if err := b.trackRepo.UpsertLatest(ctx, t); err != nil {
+			metrics.DBWriteErrors.WithLabelValues("upsert_latest").Inc()
+			slog.Error("broadcaster: upsert failed", "source", b.source, "error", err)
+		}
+		if err := b.trackRepo.InsertPosition(ctx, t); err != nil {
+			metrics.DBWriteErrors.WithLabelValues("insert_position").Inc()
+			slog.Error("broadcaster: insert failed", "source", b.source, "error", err)
+		}
+		return
+	}
+
+	// Batch path. If your TrackRepo has UpsertLatestBatch /
+	// InsertPositionBatch, use those. Otherwise this loops the single-row
+	// path, which is slow but correct.
+	if err := b.trackRepo.UpsertLatestBatch(ctx, tracks); err != nil {
+		metrics.DBWriteErrors.WithLabelValues("upsert_latest_batch").Inc()
+		slog.Error("broadcaster: batch upsert failed",
+			"source", b.source, "count", len(tracks), "error", err)
+	}
+	if err := b.trackRepo.InsertPositionBatch(ctx, tracks); err != nil {
+		metrics.DBWriteErrors.WithLabelValues("insert_position_batch").Inc()
+		slog.Error("broadcaster: batch insert failed",
+			"source", b.source, "count", len(tracks), "error", err)
+	}
 }

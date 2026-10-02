@@ -6,7 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
-	"log"
+	"log/slog"
 	"time"
 
 	"icarus-vision/internal/config"
@@ -61,9 +61,15 @@ func (s *AuthService) Refresh(ctx context.Context, refreshToken string) (*TokenP
 	}
 
 	if revoked {
-		log.Printf("auth: refresh token reuse detected for user %s (token_id=%s) — revoking all sessions", userID, tokenID)
+		slog.Warn("auth: refresh token reuse detected",
+			"user_id", userID,
+			"token_id", tokenID,
+		)
 		if revokeErr := s.repo.RevokeAllUserTokens(ctx, userID); revokeErr != nil {
-			log.Printf("auth: failed to revoke all tokens for user %s after reuse detection: %v", userID, revokeErr)
+			slog.Error("auth: failed to revoke all tokens after reuse detection",
+				"user_id", userID,
+				"error", revokeErr,
+			)
 		}
 		return nil, errors.New("refresh token reuse detected")
 	}
@@ -74,7 +80,11 @@ func (s *AuthService) Refresh(ctx context.Context, refreshToken string) (*TokenP
 
 	// revoke the old token before issuing a new one
 	if err := s.repo.RevokeRefreshToken(ctx, tokenID); err != nil {
-		log.Printf("auth: failed to revoke old refresh token %s for user %s: %v", tokenID, userID, err)
+		slog.Error("auth: failed to revoke old refresh token during rotation",
+			"user_id", userID,
+			"token_id", tokenID,
+			"error", err,
+		)
 		return nil, errors.New("failed to rotate refresh token")
 	}
 

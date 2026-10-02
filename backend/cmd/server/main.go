@@ -4,6 +4,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
+	"net/http"
+	"os"
+	"os/signal"
+	"sync"
+	"syscall"
+	"time"
+
 	"icarus-vision/internal/auth"
 	"icarus-vision/internal/broadcaster"
 	"icarus-vision/internal/config"
@@ -12,34 +20,30 @@ import (
 	"icarus-vision/internal/store"
 	http2 "icarus-vision/internal/transport/http"
 	"icarus-vision/internal/transport/ws"
-	"log"
-	"net/http"
-	"os"
-	"os/signal"
-	"sync"
-	"syscall"
-	"time"
 
 	"github.com/labstack/echo/v5"
 	"github.com/labstack/echo/v5/middleware"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 func main() {
+	cfg := config.LoadConfig()
+	setupLogging(cfg.Environment)
 
 	var wg sync.WaitGroup
-
-	cfg := config.LoadConfig()
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
 	if err := store.RunMigration(cfg.Database.URL, "migrations"); err != nil {
-		log.Fatalf("migrations failed: %v", err)
+		slog.Error("migrations failed", "error", err)
+		os.Exit(1)
 	}
 
 	pool, err := store.NewPool(ctx, cfg.Database.URL)
 	if err != nil {
-		log.Fatalf("pool failed: %v", err)
+		slog.Error("pool failed", "error", err)
+		os.Exit(1)
 	}
 	defer pool.Close()
 
@@ -54,13 +58,13 @@ func main() {
 	worker := adsb.NewWorker(client)
 	trackRepo := store.NewTrackRepo(pool)
 
-	tracks := make(chan []domain.Track, 1) // added a small buffer so the worker can dump final payload and exit cleanly
+	tracks := make(chan []domain.Track, 1)
 	removedTracks := make(chan []string, 1)
 	b := broadcaster.NewBroadcaster(tracks, removedTracks, hub, worker.Name(), trackRepo)
 
 	wg.Go(func() {
 		if err := worker.Start(ctx, tracks, removedTracks); err != nil {
-			log.Printf("adsb worker stopped: %v", err)
+			slog.Error("adsb worker stopped", "error", err)
 		}
 	})
 
@@ -78,11 +82,9 @@ func main() {
 
 	handler := ws.NewHandler(hub, ctx, cfg.JWT.Secret)
 	tracksHandler := http2.NewTracksHandler(trackRepo)
+	healthHandler := http2.NewHealthHandler(pool)
 
 	e := echo.New()
-
-	e.Use(middleware.RequestLogger())
-	e.Use(middleware.Recover())
 
 	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
 		AllowOrigins:     cfg.CORS.AllowedOrigins,
@@ -92,20 +94,43 @@ func main() {
 		AllowCredentials: true,
 		MaxAge:           int((24 * time.Hour) / time.Millisecond),
 	}))
+	e.Use(middleware.Recover())
+	e.Use(http2.RequestID())
+	e.Use(http2.SlogRequestLogger())
+	e.Use(http2.MetricsMiddleware())
 
-	http2.RegisterRoutes(e, handler, tracksHandler, authHandler, cfg)
+	e.GET("/metrics", echo.WrapHandler(promhttp.Handler()))
 
-	port := fmt.Sprintf("127.0.0.1:%s", cfg.Server.Port)
+	http2.RegisterRoutes(e, handler, tracksHandler, authHandler, healthHandler, cfg)
+
+	addr := fmt.Sprintf("127.0.0.1:%s", cfg.Server.Port)
+	slog.Info("server starting", "addr", addr, "environment", cfg.Environment)
 
 	sc := echo.StartConfig{
-		Address:         port,
+		Address:         addr,
 		GracefulTimeout: 10 * time.Second,
 	}
 	if err := sc.Start(ctx, e); err != nil && !errors.Is(err, http.ErrServerClosed) {
-		log.Fatal(err)
+		slog.Error("server failed", "error", err)
+		os.Exit(1)
 	}
 
-	log.Println("--- Shutting down background workers ---")
+	slog.Info("shutting down background workers")
 	wg.Wait()
-	log.Println("--- Server gracefully stopped ---")
+	slog.Info("server gracefully stopped")
+}
+
+// configures the global slog logger. JSON in production
+func setupLogging(environment string) {
+	var handler slog.Handler
+	if environment == "production" {
+		handler = slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
+			Level: slog.LevelInfo,
+		})
+	} else {
+		handler = slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
+			Level: slog.LevelDebug,
+		})
+	}
+	slog.SetDefault(slog.New(handler))
 }
