@@ -3,6 +3,7 @@ import { useDispatch, useSelector } from "react-redux";
 import type { AppDispatch, RootState } from "../../../redux/store";
 import {
   followToggled,
+  trackSelected,
   trailMinutesSet,
   TRAIL_MINUTES_OPTIONS,
   type TrailMinutes,
@@ -165,6 +166,74 @@ function HeadingIndicator({ heading }: { heading: number | null | undefined }) {
   );
 }
 
+function CopyCoordinatesButton({ lat, lon }: { lat: number; lon: number }) {
+  const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    if (!copied) return;
+    const id = setTimeout(() => setCopied(false), 1500);
+    return () => clearTimeout(id);
+  }, [copied]);
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(
+        `${lat.toFixed(5)}, ${lon.toFixed(5)}`,
+      );
+      setCopied(true);
+    } catch (err) {
+      console.warn("[TelemetryPanel] clipboard write failed:", err);
+    }
+  };
+
+  return (
+    <button
+      onClick={handleCopy}
+      className={`cursor-pointer rounded px-1.5 py-0.5 text-[10px] transition-colors ${
+        copied ? "text-[#3FB950]" : "text-[#6E7681] hover:text-[#8B949E]"
+      }`}
+      title="Copy coordinates"
+    >
+      {copied ? "Copied" : "Copy"}
+    </button>
+  );
+}
+
+function RecentSelections() {
+  const dispatch: AppDispatch = useDispatch();
+  const recent = useSelector((s: RootState) => s.selection.recent);
+  const tracks = useSelector((s: RootState) => s.tracks.tracks);
+
+  const visible = recent.filter((id) => tracks[id]);
+
+  if (visible.length === 0) return null;
+
+  return (
+    <div className="w-full px-4 pt-4">
+      <div className="mb-2 text-[10px] uppercase tracking-wider text-[#6E7681]">
+        Recent
+      </div>
+      <div className="flex flex-wrap gap-1.5">
+        {visible.map((id) => {
+          const t = tracks[id];
+          const label = t.callsign || id;
+          return (
+            <button
+              key={id}
+              onClick={() => dispatch(trackSelected(id))}
+              className="cursor-pointer rounded-md border border-[#21262D] px-2 py-1 font-mono text-[11px] text-[#8B949E] transition-colors hover:border-[#30363D] hover:text-[#E6EDF3]"
+            >
+              {label}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// --- Panel ---
+
 export default function TelemetryPanel() {
   const dispatch: AppDispatch = useDispatch();
 
@@ -185,13 +254,14 @@ export default function TelemetryPanel() {
 
   if (!selectedTrack) {
     return (
-      <div className="flex min-h-44 flex-col items-center justify-center px-6 text-center">
+      <div className="flex min-h-44 flex-col items-center justify-center px-6 py-6 text-center">
         <div className="text-[13px] font-medium text-[#8B949E]">
           No aircraft selected
         </div>
         <p className="mt-2 max-w-48 text-[12px] leading-relaxed text-[#6E7681]">
           Select an aircraft on the map to inspect its telemetry.
         </p>
+        <RecentSelections />
       </div>
     );
   }
@@ -314,7 +384,13 @@ export default function TelemetryPanel() {
 
       {/* position + trail */}
       <div className="px-4 py-4">
-        <div className="mb-3 text-[11px] text-[#6E7681]">Position</div>
+        <div className="mb-3 flex items-center justify-between">
+          <span className="text-[11px] text-[#6E7681]">Position</span>
+          <CopyCoordinatesButton
+            lat={selectedTrack.lat}
+            lon={selectedTrack.lon}
+          />
+        </div>
         <div className="space-y-2.5">
           <div className="flex items-center justify-between gap-4">
             <span className="text-[12px] text-[#6E7681]">Latitude</span>

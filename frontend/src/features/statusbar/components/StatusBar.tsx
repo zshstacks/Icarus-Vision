@@ -1,6 +1,8 @@
 import ConnectionStatus from "./ConnectionStatus";
 import FpsCounter from "./FpsCounter";
 import LocalTime from "./LocalTime";
+import StatsGroup from "./StatsGroup";
+import HighestAircraft from "./HighestAircraft";
 
 export default function StatusBar() {
   return (
@@ -26,9 +28,12 @@ export default function StatusBar() {
           <span className="uppercase tracking-wider">FPS</span>
           <FpsCounter />
         </div>
+
+        <StatsGroup />
       </div>
 
       <div className="flex items-center gap-3 font-mono">
+        <HighestAircraft />
         <LocalTime />
       </div>
     </footer>
