@@ -17,7 +17,7 @@ interface HelpModalProps {
 }
 
 const SHORTCUTS: { keys: string[]; label: string }[] = [
-  { keys: ["⌘", "/"], label: "Open this dialog" },
+  { keys: ["Ctrl", "/"], label: "Open this dialog" },
   { keys: ["Esc"], label: "Close panels & dialogs" },
   { keys: ["Enter"], label: "Jump to first search result" },
   { keys: ["Shift", "Drag"], label: "Box zoom on map" },

@@ -82,94 +82,94 @@ function getVerticalRate(rateMps: number | null | undefined) {
 function HeadingIndicator({ heading }: { heading: number | null | undefined }) {
   if (heading == null) {
     return (
-      <div className="flex h-28 items-center justify-center text-xs text-[#6E7681]">
+      <div className="flex h-28 items-center justify-center text-[11px] text-[#6E7681]">
         N/A
       </div>
     );
   }
 
   const normalized = ((heading % 360) + 360) % 360;
-  const ticks = Array.from({ length: 12 }, (_, i) => i * 30);
+
+  const cardinals = [
+    { label: "N", deg: 0 },
+    { label: "E", deg: 90 },
+    { label: "S", deg: 180 },
+    { label: "W", deg: 270 },
+  ];
 
   return (
-    <div className="relative mx-auto flex h-32 w-32 items-center justify-center">
-      <svg
-        viewBox="0 0 120 120"
-        className="absolute inset-0 h-full w-full"
-        aria-hidden
-      >
-        <circle
-          cx="60"
-          cy="60"
-          r="54"
-          fill="none"
-          stroke="#21262D"
-          strokeWidth="1.5"
-        />
-        <circle
-          cx="60"
-          cy="60"
-          r="48"
-          fill="none"
-          stroke="#30363D"
-          strokeWidth="1"
-        />
-
-        {ticks.map((deg) => {
-          const isCardinal = deg % 90 === 0;
-          const rad = ((deg - 90) * Math.PI) / 180;
-          const outer = 48;
-          const inner = isCardinal ? 38 : 42;
-          return (
-            <line
-              key={deg}
-              x1={60 + outer * Math.cos(rad)}
-              y1={60 + outer * Math.sin(rad)}
-              x2={60 + inner * Math.cos(rad)}
-              y2={60 + inner * Math.sin(rad)}
-              stroke={isCardinal ? "#8B949E" : "#30363D"}
-              strokeWidth={isCardinal ? 1.5 : 1}
-            />
-          );
-        })}
-
-        {[
-          { label: "N", deg: 0 },
-          { label: "E", deg: 90 },
-          { label: "S", deg: 180 },
-          { label: "W", deg: 270 },
-        ].map(({ label, deg }) => {
-          const rad = ((deg - 90) * Math.PI) / 180;
-          const r = 32;
-          return (
-            <text
-              key={label}
-              x={60 + r * Math.cos(rad)}
-              y={60 + r * Math.sin(rad)}
-              textAnchor="middle"
-              dominantBaseline="middle"
-              className="fill-[#E6EDF3] text-[10px] font-medium"
-            >
-              {label}
-            </text>
-          );
-        })}
-
-        <g
-          style={{
-            transform: `rotate(${normalized}deg)`,
-            transformOrigin: "60px 60px",
-            transition: "transform 300ms ease-out",
-          }}
+    <div className="flex justify-center">
+      <div className="relative h-28 w-28">
+        <svg
+          viewBox="0 0 100 100"
+          className="absolute inset-0 h-full w-full"
+          aria-hidden
         >
-          <polygon points="60,18 64,60 60,66 56,60" fill="#58A6FF" />
-          <polygon points="60,66 63,78 60,74 57,78" fill="#8B949E" />
-          <circle cx="60" cy="60" r="3.5" fill="#E6EDF3" />
-        </g>
-      </svg>
+          <circle
+            cx="50"
+            cy="50"
+            r="46"
+            fill="none"
+            stroke="#21262D"
+            strokeWidth="1"
+          />
 
-      <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 font-mono text-[11px] tabular-nums text-[#8B949E]">
-        {normalized.toFixed(0).padStart(3, "0")}°
+          <g
+            style={{
+              transform: `rotate(${-normalized}deg)`,
+              transformOrigin: "50px 50px",
+              transition: "transform 400ms cubic-bezier(0.22, 1, 0.36, 1)",
+            }}
+          >
+            {Array.from({ length: 36 }, (_, i) => i * 10).map((deg) => {
+              const isCardinal = deg % 90 === 0;
+              const isMajor = deg % 30 === 0;
+              const rad = ((deg - 90) * Math.PI) / 180;
+              const inner = isCardinal ? 40 : isMajor ? 42 : 44;
+              return (
+                <line
+                  key={deg}
+                  x1={50 + 46 * Math.cos(rad)}
+                  y1={50 + 46 * Math.sin(rad)}
+                  x2={50 + inner * Math.cos(rad)}
+                  y2={50 + inner * Math.sin(rad)}
+                  stroke={
+                    isCardinal ? "#8B949E" : isMajor ? "#484F58" : "#30363D"
+                  }
+                  strokeWidth={isCardinal ? 1.5 : 1}
+                />
+              );
+            })}
+
+            {cardinals.map(({ label, deg }) => {
+              const rad = ((deg - 90) * Math.PI) / 180;
+              const r = 33;
+              return (
+                <text
+                  key={label}
+                  x={50 + r * Math.cos(rad)}
+                  y={50 + r * Math.sin(rad)}
+                  textAnchor="middle"
+                  dominantBaseline="middle"
+                  className="fill-[#8B949E] text-[9px] font-medium"
+                >
+                  {label}
+                </text>
+              );
+            })}
+          </g>
+
+          <polygon points="46,4 54,4 50,13" fill="#58A6FF" />
+        </svg>
+
+        <div className="absolute inset-0 flex items-center justify-center">
+          <span className="font-mono text-[18px] font-medium tabular-nums tracking-tight text-[#E6EDF3]">
+            {normalized.toFixed(0).padStart(3, "0")}
+            <span className="ml-0.5 text-[10px] font-normal text-[#6E7681]">
+              °
+            </span>
+          </span>
+        </div>
       </div>
     </div>
   );
