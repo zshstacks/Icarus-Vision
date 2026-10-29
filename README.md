@@ -2,6 +2,10 @@
 
 Real-time aircraft tracking dashboard. Polls live ADS-B data from the OpenSky Network, streams it via WebSockets, and renders it on a custom MapLibre map.
 
+
+https://github.com/user-attachments/assets/55ec1c2f-af74-4923-8482-e9c097cf35b1
+
+
 ## Features
 
 - Live map with a custom dark theme.
