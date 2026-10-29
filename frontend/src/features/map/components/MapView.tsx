@@ -1,9 +1,12 @@
 import { useEffect, useRef, useState } from "react";
-import { Map, type ExpressionSpecification } from "maplibre-gl";
+import { Map, setWorkerUrl, type ExpressionSpecification } from "maplibre-gl";
+import workerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url";
 import "maplibre-gl/dist/maplibre-gl.css";
 import TrackLayer from "./TrackLayer";
 import TrailLayer from "./TrailLayer";
 import FollowCamera from "./FollowCamera";
+
+setWorkerUrl(workerUrl);
 
 const PALETTE = {
   //Core surfaces

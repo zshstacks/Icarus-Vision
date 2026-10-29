@@ -28,25 +28,6 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 
-# ==============================
-# Rust / Tauri (frontend/src-tauri/)
-# ==============================
-frontend/src-tauri/target/
-frontend/src-tauri/Cargo.lock
-
-# Tauri build artifacts / bundles
-frontend/src-tauri/gen/
-*.app
-*.dmg
-*.msi
-*.appimage
-
-# ==============================
-# Protobuf generated (regenerated via scripts/proto_gen.sh)
-# ==============================
-frontend/src/proto/*.ts
-backend/internal/proto/*.pb.go
-!shared/proto/threat_vector.proto
 
 # ==============================
 # Env / secrets

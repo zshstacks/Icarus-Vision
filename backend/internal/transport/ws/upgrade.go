@@ -31,7 +31,7 @@ func (h *Handler) Upgrade(c *echo.Context) error {
 	}
 
 	opts := websocket.AcceptOptions{
-		OriginPatterns: []string{"localhost:8080", "localhost:5173"},
+		OriginPatterns: []string{"localhost:8080", "localhost:5173", "localhost:3000"},
 	}
 	conn, err := websocket.Accept(c.Response(), c.Request(), &opts)
 	if err != nil {

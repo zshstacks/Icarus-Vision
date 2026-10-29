@@ -103,7 +103,7 @@ func main() {
 
 	http2.RegisterRoutes(e, handler, tracksHandler, authHandler, healthHandler, cfg)
 
-	addr := fmt.Sprintf("127.0.0.1:%s", cfg.Server.Port)
+	addr := fmt.Sprintf("0.0.0.0:%s", cfg.Server.Port)
 	slog.Info("server starting", "addr", addr, "environment", cfg.Environment)
 
 	sc := echo.StartConfig{

@@ -10,6 +10,49 @@ services:
       - "5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U icarus_vision -d icarus_vision"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    container_name: icarus-backend
+    depends_on:
+      postgres:
+        condition: service_healthy
+    env_file:
+      - ../backend/.env
+    environment:
+      # Override DATABASE_URL from .env - container reaches Postgres by service name
+      DATABASE_URL: postgres://icarus_vision:icarus_vision@postgres:5432/icarus_vision?sslmode=disable
+      # Caddy-on-host reaches the container from the docker bridge network
+      TRUSTED_PROXIES: "127.0.0.1/32,::1/128,172.16.0.0/12"
+    ports:
+      - "8080:8080"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/healthz >/dev/null || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 15s
+
+  frontend:
+    build:
+      context: ../frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_PUBLIC_API_URL: ${VITE_PUBLIC_API_URL:-http://localhost:8080}
+        VITE_PUBLIC_WS_API_URL: ${VITE_PUBLIC_WS_API_URL:-ws://localhost:8080/ws}
+    container_name: icarus-frontend
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "5173:80"
 
 volumes:
   postgres_data:

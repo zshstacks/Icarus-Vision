@@ -11,8 +11,9 @@ vi.mock("axios", () => {
 
 import axios from "axios";
 
-const mockPost = (axios.create as ReturnType<typeof vi.fn>)()
-  .post as ReturnType<typeof vi.fn>;
+const mockPost = (axios.create as unknown as () => {
+  post: ReturnType<typeof vi.fn>;
+})().post;
 
 describe("refreshOnce", () => {
   beforeEach(() => {
